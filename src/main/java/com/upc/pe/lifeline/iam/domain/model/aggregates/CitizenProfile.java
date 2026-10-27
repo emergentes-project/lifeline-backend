@@ -46,7 +46,8 @@ public class CitizenProfile extends AuditableAbstractAggregateRoot<CitizenProfil
 
     public CitizenProfile(User user, String city, String district, String address,
                           LocalDate dateOfBirth, String preExistingConditions,
-                          String allergies, EmergencyContact emergencyContact) {
+                          String allergies, String emergencyContactName,
+                          String emergencyContactPhone) {
         this.user = user;
         this.city = city;
         this.district = district;
@@ -54,6 +55,7 @@ public class CitizenProfile extends AuditableAbstractAggregateRoot<CitizenProfil
         this.dateOfBirth = dateOfBirth;
         this.preExistingConditions = preExistingConditions;
         this.allergies = allergies;
-        this.emergencyContact = emergencyContact;
+        this.emergencyContact = emergencyContactName == null && emergencyContactPhone == null
+                ? null : new EmergencyContact(emergencyContactName, emergencyContactPhone);
     }
 }

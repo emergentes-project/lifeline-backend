@@ -34,10 +34,10 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
 
     public MedicalProfile() {}
 
-    public MedicalProfile(User user, ProfessionalCategory professionalCategory,
+    public MedicalProfile(User user, String professionalCategory,
                           String professionalLicenseNumber, String specialty) {
         this.user = user;
-        this.professionalCategory = professionalCategory;
+        this.professionalCategory = ProfessionalCategory.from(professionalCategory);
         this.professionalLicenseNumber = professionalLicenseNumber;
         this.specialty = specialty;
         this.verificationStatus = "PENDING";

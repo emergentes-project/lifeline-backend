@@ -16,6 +16,8 @@ import java.util.UUID;
 @Setter
 @Entity
 public class ConsultationSubmission extends AuditableAbstractAggregateRoot<ConsultationSubmission> {
+    @Column(nullable = false, unique = true)
+    private UUID mobileConsultationId;
 
     @Embedded
     @AttributeOverride(name = "userId", column = @Column(name = "citizen_user_id"))
@@ -49,10 +51,14 @@ public class ConsultationSubmission extends AuditableAbstractAggregateRoot<Consu
 
     public ConsultationSubmission() {}
 
-    public ConsultationSubmission(UUID citizenUserId, String inputText,
+    public ConsultationSubmission(UUID mobileConsultationId, UUID citizenUserId, String inputText,
                                   String photoStorageKey, boolean helpRequested,
                                   LocalDateTime consultationRecordedAt, LocalDateTime receivedAt,
                                   UUID idempotencyKey, Patient patient, ConsultationAnswer answer) {
+        if (mobileConsultationId == null) {
+            throw new IllegalArgumentException("Mobile consultation ID is required");
+        }
+        this.mobileConsultationId = mobileConsultationId;
         this.citizenUserId = citizenUserId == null ? null : new UserId(citizenUserId);
         this.inputText = inputText;
         this.photoStorageKey = photoStorageKey;

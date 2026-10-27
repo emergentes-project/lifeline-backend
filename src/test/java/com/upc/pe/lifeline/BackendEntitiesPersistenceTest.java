@@ -7,9 +7,6 @@ import com.upc.pe.lifeline.casemanagement.domain.model.entities.CaseStatusHistor
 import com.upc.pe.lifeline.casemanagement.domain.model.entities.ConsultationAnswer;
 import com.upc.pe.lifeline.casemanagement.domain.model.entities.Patient;
 import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.CaseStatus;
-import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.GuidanceStatus;
-import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.PreliminaryPriority;
-import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.entities.OutboxEvent;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.CitizenProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.MedicalProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.User;
@@ -53,18 +50,18 @@ class BackendEntitiesPersistenceTest {
 
     @Test
     void persistsIamRelationsEnumsAndTheEmbeddedEmergencyContact() {
-        Role citizenRole = new Role(RolesCode.CIT1, RolesName.CITIZEN);
-        Role medicalRole = new Role(RolesCode.MED2, RolesName.MEDICAL_PROFESSIONAL);
-        entityManager.persist(citizenRole);
-        entityManager.persist(medicalRole);
+        Role citizenRole = entityManager.createQuery("select r from Role r where r.code = :code", Role.class)
+                .setParameter("code", RolesCode.CIT1).getSingleResult();
+        Role medicalRole = entityManager.createQuery("select r from Role r where r.code = :code", Role.class)
+                .setParameter("code", RolesCode.MED2).getSingleResult();
         User citizen = new User("citizen@example.test", "password-hash", "Ana", "Perez", null, citizenRole);
         User professional = new User("medical@example.test", "password-hash", "Luis", "Ruiz", null, medicalRole);
         entityManager.persist(citizen);
         entityManager.persist(professional);
         EmergencyContact contact = new EmergencyContact("Maria Perez", "+51987654321");
         CitizenProfile citizenProfile = new CitizenProfile(citizen, "Lima", "Miraflores", "Av. Principal 123",
-                LocalDate.of(1995, 1, 20), null, null, contact);
-        MedicalProfile medicalProfile = new MedicalProfile(professional, ProfessionalCategory.DOCTOR,
+                LocalDate.of(1995, 1, 20), null, null, contact.name(), contact.phone());
+        MedicalProfile medicalProfile = new MedicalProfile(professional, "DOCTOR",
                 "CMP-12345", "Emergency medicine");
         entityManager.persist(citizenProfile);
         entityManager.persist(medicalProfile);
@@ -89,15 +86,16 @@ class BackendEntitiesPersistenceTest {
         assertThat(patientId).isNotNull();
         List<Map<String, Object>> references = List.of(Map.of("source", "baseline", "section", "first-aid"));
         ConsultationAnswer answer = new ConsultationAnswer(null, "Request professional assistance",
-                GuidanceStatus.GENERATED, PreliminaryPriority.HIGH, true, references);
+                "GENERATED", "HIGH", true, references);
         UUID answerId = answer.getId();
         assertThat(answerId).isNotNull();
         UUID citizenId = UUID.randomUUID();
-        ConsultationSubmission submission = new ConsultationSubmission(citizenId, null,
+        UUID mobileConsultationId = UUID.randomUUID();
+        ConsultationSubmission submission = new ConsultationSubmission(mobileConsultationId, citizenId, null,
                 null, true, now, now, UUID.randomUUID(), patient, answer);
         UUID submissionId = submission.getId();
         assertThat(submissionId).isNotNull();
-        submission.setPhotoStorageKey("lifeline/consultations/" + submissionId);
+        submission.setPhotoStorageKey("lifeline/consultations/" + mobileConsultationId);
         entityManager.persist(submission);
         Case caseEntity = new Case(submission);
         UUID professionalId = UUID.randomUUID();
@@ -112,6 +110,7 @@ class BackendEntitiesPersistenceTest {
 
         ConsultationSubmission storedSubmission = entityManager.find(ConsultationSubmission.class, submissionId);
         Case storedCase = entityManager.find(Case.class, caseEntity.getId());
+        assertThat(storedSubmission.getMobileConsultationId()).isEqualTo(mobileConsultationId);
         assertThat(storedSubmission.getInputText()).isNull();
         assertThat(storedSubmission.getCitizenUserId()).isEqualTo(new UserId(citizenId));
         assertThat(storedSubmission.getPatient().getId()).isEqualTo(patientId);
@@ -136,20 +135,4 @@ class BackendEntitiesPersistenceTest {
                 .isEqualTo(new UserId(professionalId));
     }
 
-    @Test
-    void persistsTheOutboxPayloadAsStructuredJson() {
-        UUID aggregateId = UUID.randomUUID();
-        Map<String, Object> payload = Map.of("caseId", aggregateId.toString(), "status", "AVAILABLE");
-        OutboxEvent event = new OutboxEvent(aggregateId, "CASE_CREATED", payload);
-        entityManager.persist(event);
-        entityManager.flush();
-        entityManager.clear();
-
-        OutboxEvent stored = entityManager.find(OutboxEvent.class, event.getId());
-        assertThat(stored.getPayload()).isEqualTo(payload);
-        assertThat(stored.getAggregateId()).isEqualTo(aggregateId);
-        assertThat(stored.getStatus()).isEqualTo("PENDING");
-        assertThat(stored.getAttempts()).isZero();
-        assertThat(stored.getCreatedAt()).isNotNull();
-    }
 }

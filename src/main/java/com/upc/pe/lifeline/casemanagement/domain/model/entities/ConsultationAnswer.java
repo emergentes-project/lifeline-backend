@@ -44,13 +44,14 @@ public class ConsultationAnswer extends AuditableModel {
     public ConsultationAnswer() {}
 
     public ConsultationAnswer(ConsultationSubmission consultationSubmission,
-                              String guidanceText, GuidanceStatus guidanceStatus,
-                              PreliminaryPriority preliminaryPriority, boolean professionalHelpRecommended,
+                              String guidanceText, String guidanceStatus,
+                              String preliminaryPriority, boolean professionalHelpRecommended,
                               List<Map<String, Object>> sourceReferences) {
         this.consultationSubmission = consultationSubmission;
         this.guidanceText = guidanceText;
-        this.guidanceStatus = guidanceStatus;
-        this.preliminaryPriority = preliminaryPriority;
+        this.guidanceStatus = GuidanceStatus.valueOf(guidanceStatus);
+        this.preliminaryPriority = preliminaryPriority == null
+                ? null : PreliminaryPriority.valueOf(preliminaryPriority);
         this.professionalHelpRecommended = professionalHelpRecommended;
         this.sourceReferences = sourceReferences == null ? new ArrayList<>() : new ArrayList<>(sourceReferences);
     }
