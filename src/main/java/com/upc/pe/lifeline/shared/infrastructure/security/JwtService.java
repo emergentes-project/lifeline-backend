@@ -11,7 +11,8 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Date;
 import java.util.UUID;
 
@@ -40,14 +41,14 @@ public class JwtService {
         if (userId == null || role == null || !role.matches("[A-Z][A-Z0-9_]{0,39}")) {
             throw new IllegalArgumentException("User ID and role are required");
         }
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         return Jwts.builder()
                 .issuer(issuer)
-                .subject(userId.value().toString())
+                .subject(userId.userId().toString())
                 .claim("token_use", "access")
                 .claim("role", role)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(expiration)))
+                .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))
+                .expiration(Date.from(now.plus(expiration).toInstant(ZoneOffset.UTC)))
                 .signWith(secretKey, Jwts.SIG.HS256)
                 .compact();
     }
@@ -56,13 +57,13 @@ public class JwtService {
         if (serviceName == null || !serviceName.matches("[a-zA-Z0-9_-]{1,80}")) {
             throw new IllegalArgumentException("A valid service name is required");
         }
-        Instant now = Instant.now();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         return Jwts.builder()
                 .issuer(issuer)
                 .subject(serviceName)
                 .claim("token_use", "service")
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(expiration)))
+                .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))
+                .expiration(Date.from(now.plus(expiration).toInstant(ZoneOffset.UTC)))
                 .signWith(secretKey, Jwts.SIG.HS256)
                 .compact();
     }

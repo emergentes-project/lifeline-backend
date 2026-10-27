@@ -1,5 +1,8 @@
 package com.upc.pe.lifeline.iam.domain.model.valueobjects;
 
+import jakarta.persistence.Embeddable;
+
+@Embeddable
 public record EmergencyContact(String name, String phone) {
     public EmergencyContact {
         if (name == null || name.isBlank()) {

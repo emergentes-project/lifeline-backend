@@ -1,6 +1,8 @@
 spring:
   application:
     name: lifeline
+  profiles:
+    default: local
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/lifeline}
     username: ${DB_USERNAME}
@@ -8,7 +10,7 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: none
+      ddl-auto: ${JPA_DDL_AUTO:none}
       naming:
         physical-strategy: com.upc.pe.lifeline.shared.infrastructure.persistence.jpa.configuration.strategy.SnakeCaseWithPluralizedTablePhysicalNamingStrategy
   servlet:
@@ -30,3 +32,20 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET}
   max-file-size: ${IMAGE_MAX_FILE_SIZE:10MB}
   download-url-duration: ${CLOUDINARY_DOWNLOAD_URL_DURATION:PT1M}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+    import: "optional:file:.env.local[.properties]"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+    import: "optional:file:.env.prod[.properties]"

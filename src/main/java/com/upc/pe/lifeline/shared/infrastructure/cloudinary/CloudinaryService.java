@@ -10,7 +10,8 @@ import org.springframework.util.unit.DataSize;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -92,7 +93,7 @@ public class CloudinaryService implements ImageStorageService {
                     "resource_type", "image",
                     "type", "authenticated",
                     "attachment", false,
-                    "expires_at", Instant.now().plus(downloadUrlDuration).getEpochSecond()));
+                    "expires_at", LocalDateTime.now(ZoneOffset.UTC).plus(downloadUrlDuration).toEpochSecond(ZoneOffset.UTC)));
         } catch (Exception exception) {
             throw new ImageStorageException("Image download URL could not be generated", exception);
         }

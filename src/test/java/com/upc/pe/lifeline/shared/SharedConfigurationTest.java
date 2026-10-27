@@ -20,7 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -79,17 +79,18 @@ class SharedConfigurationTest {
 
     @Test
     @Transactional
-    void aggregatePreservesTheMobileIdAndRegistersDomainEvents() {
-        Instant now = Instant.parse("2026-10-27T12:00:00Z");
+    void aggregateGeneratesItsIdAndRegistersDomainEvents() {
+        LocalDateTime now = LocalDateTime.parse("2026-10-27T12:00:00");
         when(dateTimeProvider.getNow()).thenReturn(Optional.of(now));
-        UUID suppliedId = UUID.randomUUID();
-        AggregateProbe aggregate = new AggregateProbe(suppliedId);
+        AggregateProbe aggregate = new AggregateProbe();
+        UUID generatedId = aggregate.getId();
+        assertThat(generatedId).isNotNull();
         aggregate.addDomainEvent("consultation-received");
         assertThat(aggregate.isNew()).isTrue();
 
         new SimpleJpaRepository<>(AggregateProbe.class, entityManager).saveAndFlush(aggregate);
 
-        assertThat(aggregate.getId()).isEqualTo(suppliedId);
+        assertThat(aggregate.getId()).isEqualTo(generatedId);
         assertThat(aggregate.getCreatedAt()).isEqualTo(now);
         assertThat(aggregate.getUpdatedAt()).isEqualTo(now);
         assertThat(aggregate.isNew()).isFalse();
@@ -97,14 +98,14 @@ class SharedConfigurationTest {
         aggregate.clearEvents();
         assertThat(aggregate.getDomainEvents()).isEmpty();
         entityManager.clear();
-        assertThat(entityManager.find(AggregateProbe.class, suppliedId).isNew()).isFalse();
+        assertThat(entityManager.find(AggregateProbe.class, generatedId).isNew()).isFalse();
     }
 
     @Test
     @Transactional
     void entityGeneratesItsIdAndUpdatesOnlyTheModificationDate() {
-        Instant created = Instant.parse("2026-10-27T12:00:00Z");
-        Instant updated = created.plusSeconds(60);
+        LocalDateTime created = LocalDateTime.parse("2026-10-27T12:00:00");
+        LocalDateTime updated = created.plusSeconds(60);
         when(dateTimeProvider.getNow()).thenReturn(Optional.of(created));
         EntityProbe entity = new EntityProbe();
         var repository = new SimpleJpaRepository<>(EntityProbe.class, entityManager);
@@ -130,9 +131,6 @@ class SharedConfigurationTest {
         protected AggregateProbe() {
         }
 
-        AggregateProbe(UUID id) {
-            super(id);
-        }
     }
 
     @Entity

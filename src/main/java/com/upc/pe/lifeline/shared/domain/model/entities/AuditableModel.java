@@ -13,7 +13,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.domain.Persistable;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -25,12 +25,12 @@ public abstract class AuditableModel implements Persistable<UUID> {
     private UUID id;
 
     @CreatedDate
-    @Column(nullable = false, updatable = false, columnDefinition = "timestamp with time zone")
-    private Instant createdAt;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(nullable = false, columnDefinition = "timestamp with time zone")
-    private Instant updatedAt;
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     @Transient
     private boolean isNew = true;

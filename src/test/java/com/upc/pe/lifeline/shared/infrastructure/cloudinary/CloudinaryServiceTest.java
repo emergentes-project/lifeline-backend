@@ -10,7 +10,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.util.unit.DataSize;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
@@ -68,7 +69,7 @@ class CloudinaryServiceTest {
         resource();
         when(cloudinary.privateDownload(eq(STORAGE_KEY), eq("png"), anyMap()))
                 .thenReturn("https://api.cloudinary.com/signed-download");
-        long before = Instant.now().getEpochSecond();
+        long before = LocalDateTime.now(ZoneOffset.UTC).toEpochSecond(ZoneOffset.UTC);
 
         assertThat(service.getDownloadUrl(STORAGE_KEY)).isEqualTo("https://api.cloudinary.com/signed-download");
 
@@ -76,7 +77,7 @@ class CloudinaryServiceTest {
         verify(cloudinary).privateDownload(eq(STORAGE_KEY), eq("png"), options.capture());
         assertThat(options.getValue()).containsEntry("type", "authenticated");
         assertThat(((Number) options.getValue().get("expires_at")).longValue())
-                .isBetween(before + 60, Instant.now().getEpochSecond() + 60);
+                .isBetween(before + 60, LocalDateTime.now(ZoneOffset.UTC).toEpochSecond(ZoneOffset.UTC) + 60);
     }
 
     private void resource() throws Exception {

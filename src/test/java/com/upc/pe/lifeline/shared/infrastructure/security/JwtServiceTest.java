@@ -8,7 +8,8 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
@@ -23,19 +24,20 @@ class JwtServiceTest {
     @Test
     void accessTokenPreservesIdentityRoleAndExpiration() {
         UserId userId = new UserId(UUID.randomUUID());
-        Instant before = Instant.now();
+        LocalDateTime before = LocalDateTime.now(ZoneOffset.UTC);
 
         var claims = service.parseClaims(service.generateToken(userId, "CITIZEN"));
 
-        assertThat(claims.getSubject()).isEqualTo(userId.value().toString());
+        assertThat(claims.getSubject()).isEqualTo(userId.userId().toString());
         assertThat(claims.get("role")).isEqualTo("CITIZEN");
         assertThat(claims.get("token_use")).isEqualTo("access");
-        assertThat(claims.getExpiration().toInstant()).isAfter(before.plusSeconds(3598));
+        assertThat(LocalDateTime.ofInstant(claims.getExpiration().toInstant(), ZoneOffset.UTC))
+                .isAfter(before.plusSeconds(3598));
     }
 
     @Test
     void rejectsExpiredTokens() {
-        String token = signedToken("lifeline", Instant.now().minusSeconds(30));
+        String token = signedToken("lifeline", LocalDateTime.now(ZoneOffset.UTC).minusSeconds(30));
 
         assertThatThrownBy(() -> service.parseClaims(token)).isInstanceOf(JwtException.class);
     }
@@ -49,11 +51,11 @@ class JwtServiceTest {
         assertThatThrownBy(() -> service.parseClaims(token)).isInstanceOf(JwtException.class);
     }
 
-    private String signedToken(String issuer, Instant expiration) {
+    private String signedToken(String issuer, LocalDateTime expiration) {
         return Jwts.builder().issuer(issuer).subject(UUID.randomUUID().toString())
                 .claim("token_use", "access").claim("role", "CITIZEN")
-                .issuedAt(Date.from(Instant.now().minusSeconds(120)))
-                .expiration(Date.from(expiration))
+                .issuedAt(Date.from(LocalDateTime.now(ZoneOffset.UTC).minusSeconds(120).toInstant(ZoneOffset.UTC)))
+                .expiration(Date.from(expiration.toInstant(ZoneOffset.UTC)))
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET))).compact();
     }
 }

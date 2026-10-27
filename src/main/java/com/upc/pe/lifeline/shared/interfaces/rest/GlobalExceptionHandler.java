@@ -24,7 +24,8 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -47,7 +48,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         List<ApiError.ValidationError> errors = exception.getBindingResult().getFieldErrors().stream()
                 .map(error -> new ApiError.ValidationError(error.getField(), error.getDefaultMessage())).toList();
-        return new ResponseEntity<>(new ApiError(Instant.now(), status.value(), "Bad Request",
+        return new ResponseEntity<>(new ApiError(LocalDateTime.now(ZoneOffset.UTC), status.value(), "Bad Request",
                 "Validation failed", path(request), errors), headers, status);
     }
 
@@ -56,7 +57,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         HttpStatus httpStatus = HttpStatus.resolve(status.value());
         String reason = httpStatus == null ? "Request failed" : httpStatus.getReasonPhrase();
-        return new ResponseEntity<>(new ApiError(Instant.now(), status.value(), reason,
+        return new ResponseEntity<>(new ApiError(LocalDateTime.now(ZoneOffset.UTC), status.value(), reason,
                 reason, path(request), List.of()), headers, status);
     }
 
@@ -66,7 +67,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<ApiError.ValidationError> errors = exception.getConstraintViolations().stream()
                 .map(error -> new ApiError.ValidationError(error.getPropertyPath().toString(), error.getMessage()))
                 .toList();
-        return ResponseEntity.badRequest().body(new ApiError(Instant.now(), 400, "Bad Request",
+        return ResponseEntity.badRequest().body(new ApiError(LocalDateTime.now(ZoneOffset.UTC), 400, "Bad Request",
                 "Validation failed", request.getRequestURI(), errors));
     }
 
