@@ -4,6 +4,7 @@ import com.cloudinary.Cloudinary;
 import com.cloudinary.api.exceptions.NotFound;
 import com.upc.pe.lifeline.shared.application.exceptions.ImageStorageException;
 import com.upc.pe.lifeline.shared.application.external.ImageStorageService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.unit.DataSize;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
+@ConditionalOnProperty(prefix = "cloudinary", name = "enabled", havingValue = "true")
 public class CloudinaryService implements ImageStorageService {
     private static final String PREFIX = "lifeline/consultations/";
     private static final Pattern STORAGE_KEY = Pattern.compile(

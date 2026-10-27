@@ -1,6 +1,17 @@
 package com.upc.pe.lifeline.iam.interfaces.rest.resources;
 
-public record RegisterMedicalProfessionalResource(String email, String password, String firstName,
-                                                  String lastName, String phone, String professionalCategory,
-                                                  String professionalLicenseNumber, String specialty) {
+import io.swagger.v3.oas.annotations.media.Schema;
+
+public record RegisterMedicalProfessionalResource(
+        @Schema(example = "doctor@example.com", requiredMode = Schema.RequiredMode.REQUIRED) String email,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String password,
+        @Schema(example = "Luis", requiredMode = Schema.RequiredMode.REQUIRED) String firstName,
+        @Schema(example = "Ruiz", requiredMode = Schema.RequiredMode.REQUIRED) String lastName,
+        String phone,
+        @Schema(example = "DOCTOR", allowableValues = {"DOCTOR", "NURSE", "PARAMEDIC", "FIREFIGHTER",
+                "MEDICAL_INTERN", "MEDICAL_RESIDENT"}, requiredMode = Schema.RequiredMode.REQUIRED)
+        String professionalCategory,
+        @Schema(example = "CMP-12345", requiredMode = Schema.RequiredMode.REQUIRED)
+        String professionalLicenseNumber,
+        String specialty) {
 }
