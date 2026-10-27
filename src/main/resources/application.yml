@@ -9,3 +9,24 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: none
+      naming:
+        physical-strategy: com.upc.pe.lifeline.shared.infrastructure.persistence.jpa.configuration.strategy.SnakeCaseWithPluralizedTablePhysicalNamingStrategy
+  servlet:
+    multipart:
+      max-file-size: ${IMAGE_MAX_FILE_SIZE:10MB}
+      max-request-size: ${IMAGE_MAX_REQUEST_SIZE:11MB}
+
+authorization:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:lifeline}
+    expiration: ${JWT_EXPIRATION:PT1H}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
+  max-file-size: ${IMAGE_MAX_FILE_SIZE:10MB}
+  download-url-duration: ${CLOUDINARY_DOWNLOAD_URL_DURATION:PT1M}
