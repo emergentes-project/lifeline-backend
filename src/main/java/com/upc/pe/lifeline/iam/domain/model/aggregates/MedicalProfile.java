@@ -1,6 +1,7 @@
 package com.upc.pe.lifeline.iam.domain.model.aggregates;
 
 import com.upc.pe.lifeline.iam.domain.model.valueobjects.ProfessionalCategory;
+import com.upc.pe.lifeline.iam.domain.model.commands.RegisterMedicalProfessionalCommand;
 import com.upc.pe.lifeline.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -40,6 +41,14 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
         this.professionalCategory = ProfessionalCategory.from(professionalCategory);
         this.professionalLicenseNumber = professionalLicenseNumber;
         this.specialty = specialty;
+        this.verificationStatus = "PENDING";
+    }
+
+    public MedicalProfile(RegisterMedicalProfessionalCommand command, User user) {
+        this.user = user;
+        this.professionalCategory = ProfessionalCategory.from(command.professionalCategory());
+        this.professionalLicenseNumber = command.professionalLicenseNumber().strip();
+        this.specialty = command.specialty();
         this.verificationStatus = "PENDING";
     }
 }
