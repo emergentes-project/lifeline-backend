@@ -2,6 +2,7 @@ package com.upc.pe.lifeline.iam.domain.model.aggregates;
 
 import com.upc.pe.lifeline.iam.domain.model.valueobjects.EmergencyContact;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterCitizenCommand;
+import com.upc.pe.lifeline.iam.domain.model.commands.UpdateCitizenProfileCommand;
 import com.upc.pe.lifeline.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -66,6 +67,16 @@ public class CitizenProfile extends AuditableAbstractAggregateRoot<CitizenProfil
         this.district = command.district().strip();
         this.address = command.address().strip();
         this.dateOfBirth = command.dateOfBirth();
+        this.emergencyContact = command.emergencyContactName() == null
+                ? null : new EmergencyContact(command.emergencyContactName(), command.emergencyContactPhone());
+    }
+
+    public void update(UpdateCitizenProfileCommand command) {
+        this.city = command.city().strip();
+        this.district = command.district().strip();
+        this.address = command.address().strip();
+        this.preExistingConditions = command.preExistingConditions();
+        this.allergies = command.allergies();
         this.emergencyContact = command.emergencyContactName() == null
                 ? null : new EmergencyContact(command.emergencyContactName(), command.emergencyContactPhone());
     }

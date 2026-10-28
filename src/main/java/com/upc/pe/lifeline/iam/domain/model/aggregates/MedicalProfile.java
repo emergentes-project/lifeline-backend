@@ -2,6 +2,7 @@ package com.upc.pe.lifeline.iam.domain.model.aggregates;
 
 import com.upc.pe.lifeline.iam.domain.model.valueobjects.ProfessionalCategory;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterMedicalProfessionalCommand;
+import com.upc.pe.lifeline.iam.domain.model.commands.UpdateMedicalProfileCommand;
 import com.upc.pe.lifeline.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -62,5 +63,18 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
     public void rejectVerification() {
         this.verificationStatus = "REJECTED";
         this.verifiedAt = null;
+    }
+
+    public boolean update(UpdateMedicalProfileCommand command) {
+        String updatedLicense = command.professionalLicenseNumber().strip().toUpperCase(Locale.ROOT);
+        boolean licenseChanged = !this.professionalLicenseNumber.equals(updatedLicense);
+        this.professionalCategory = ProfessionalCategory.from(command.professionalCategory());
+        this.professionalLicenseNumber = updatedLicense;
+        this.specialty = command.specialty();
+        if (licenseChanged) {
+            this.verificationStatus = "PENDING";
+            this.verifiedAt = null;
+        }
+        return licenseChanged;
     }
 }

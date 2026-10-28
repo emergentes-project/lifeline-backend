@@ -3,6 +3,7 @@ package com.upc.pe.lifeline.iam.domain.model.aggregates;
 import com.upc.pe.lifeline.iam.domain.model.entities.Role;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterCitizenCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterMedicalProfessionalCommand;
+import com.upc.pe.lifeline.iam.domain.model.commands.UpdateUserCommand;
 import com.upc.pe.lifeline.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -62,5 +63,11 @@ public class User extends AuditableAbstractAggregateRoot<User> {
         this.lastName = command.lastName().strip();
         this.phone = command.phone();
         this.role = role;
+    }
+
+    public void update(UpdateUserCommand command) {
+        this.firstName = command.firstName().strip();
+        this.lastName = command.lastName().strip();
+        this.phone = command.phone();
     }
 }

@@ -5,12 +5,14 @@ import com.upc.pe.lifeline.iam.domain.exceptions.IamConflictException;
 import com.upc.pe.lifeline.iam.domain.exceptions.EmailAlreadyExistsException;
 import com.upc.pe.lifeline.iam.domain.exceptions.RoleNotFoundException;
 import com.upc.pe.lifeline.iam.domain.exceptions.UserNotCreatedException;
+import com.upc.pe.lifeline.iam.domain.exceptions.ProfileNotUpdatedException;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.CitizenProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.MedicalProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.User;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterCitizenCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterMedicalProfessionalCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.SignInUserCommand;
+import com.upc.pe.lifeline.iam.domain.model.commands.UpdateUserCommand;
 import com.upc.pe.lifeline.iam.domain.model.entities.Role;
 import com.upc.pe.lifeline.iam.domain.model.events.MedicalProfessionalRegisteredEvent;
 import com.upc.pe.lifeline.iam.domain.model.valueobjects.RolesCode;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.NoSuchElementException;
 
 @Service
 public class UserCommandServiceImpl implements UserCommandService {
@@ -96,6 +99,21 @@ public class UserCommandServiceImpl implements UserCommandService {
             throw new BadCredentialsException("Invalid credentials");
         }
         return user;
+    }
+
+    @Override
+    @Transactional
+    public User handle(UpdateUserCommand command) {
+        User user = userRepository.findById(command.userId())
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+        user.update(command);
+        try {
+            return userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            throw new IamConflictException("User update conflicts with an existing record", exception);
+        } catch (DataAccessException exception) {
+            throw new ProfileNotUpdatedException(exception);
+        }
     }
 
     private Role role(RolesCode code) {
