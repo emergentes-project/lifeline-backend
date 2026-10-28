@@ -52,6 +52,8 @@ public class SecurityConfiguration {
                                 "/api/v1/consultation-submissions",
                                 "/api/v1/consultation-submissions/{consultationId}/photo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/roles").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/consultation-submissions/{consultationId}/photo")
+                        .permitAll()
                         .requestMatchers("/api/v1/internal/**").hasAuthority("SERVICE")
                         .anyRequest().hasAnyRole("CITIZEN", "MEDICAL_PROFESSIONAL"))
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, exceptionHandler, accessTokenRevocationStore),

@@ -7,5 +7,8 @@ public record CloseCaseCommand(UUID caseId, String observation, UUID userId) {
         if (caseId == null) {
             throw new IllegalArgumentException("Case ID is required");
         }
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required");
+        }
     }
 }

@@ -10,5 +10,8 @@ public record ChangeCaseStatusCommand(UUID caseId, String newStatus, UUID userId
         if (newStatus == null || newStatus.isBlank()) {
             throw new IllegalArgumentException("New status is required");
         }
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required");
+        }
     }
 }
