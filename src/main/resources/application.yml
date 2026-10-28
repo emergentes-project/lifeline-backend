@@ -13,6 +13,11 @@ spring:
       ddl-auto: ${JPA_DDL_AUTO:none}
       naming:
         physical-strategy: com.upc.pe.lifeline.shared.infrastructure.persistence.jpa.configuration.strategy.SnakeCaseWithPluralizedTablePhysicalNamingStrategy
+  artemis:
+    mode: native
+    broker-url: ${ARTEMIS_BROKER_URL:tcp://localhost:61616}
+    user: ${ARTEMIS_USER:admin}
+    password: ${ARTEMIS_PASSWORD:admin}
   servlet:
     multipart:
       max-file-size: ${IMAGE_MAX_FILE_SIZE:10MB}
@@ -36,6 +41,14 @@ cloudinary:
 
 server:
   port: ${SERVER_PORT:8080}
+
+lifeline:
+  outbox:
+    destination: ${LIFELINE_OUTBOX_DESTINATION:lifeline.case.jobs}
+    batch-size: ${LIFELINE_OUTBOX_BATCH_SIZE:20}
+    publish-delay: ${LIFELINE_OUTBOX_PUBLISH_DELAY:5s}
+    claim-lease: ${LIFELINE_OUTBOX_CLAIM_LEASE:2m}
+    max-attempts: ${LIFELINE_OUTBOX_MAX_ATTEMPTS:5}
 
 ---
 spring:
