@@ -18,6 +18,8 @@ import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.Citiz
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.MedicalProfileRepository;
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.RoleRepository;
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.UserRepository;
+import com.upc.pe.lifeline.shared.application.ports.AccessTokenRevocationStore;
+import com.upc.pe.lifeline.shared.infrastructure.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -41,8 +43,10 @@ class UserCommandServiceImplTest {
     private final RoleRepository roles = mock(RoleRepository.class);
     private final PasswordHasher passwords = mock(PasswordHasher.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final AccessTokenRevocationStore revocations = mock(AccessTokenRevocationStore.class);
+    private final JwtService jwt = mock(JwtService.class);
     private final UserCommandServiceImpl service = new UserCommandServiceImpl(
-            users, citizens, medical, roles, passwords, events);
+            users, citizens, medical, roles, passwords, events, revocations, jwt);
 
     @Test
     void registrationStoresBothProfilesAndPublishesOnlyTheMedicalEvent() {

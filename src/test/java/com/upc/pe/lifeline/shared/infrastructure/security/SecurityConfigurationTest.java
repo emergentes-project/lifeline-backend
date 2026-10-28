@@ -1,6 +1,7 @@
 package com.upc.pe.lifeline.shared.infrastructure.security;
 
 import com.upc.pe.lifeline.shared.domain.model.valueobjects.UserId;
+import com.upc.pe.lifeline.shared.application.ports.AccessTokenRevocationStore;
 import com.upc.pe.lifeline.shared.interfaces.rest.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 import java.util.UUID;
+
+import static org.mockito.Mockito.mock;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -87,6 +90,11 @@ class SecurityConfigurationTest {
     @Configuration
     @EnableWebMvc
     static class MvcConfiguration {
+        @Bean
+        AccessTokenRevocationStore accessTokenRevocationStore() {
+            return mock(AccessTokenRevocationStore.class);
+        }
+
         @Bean
         static ConversionService conversionService() {
             return ApplicationConversionService.getSharedInstance();
