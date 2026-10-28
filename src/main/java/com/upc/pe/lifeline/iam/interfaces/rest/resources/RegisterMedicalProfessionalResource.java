@@ -11,7 +11,7 @@ public record RegisterMedicalProfessionalResource(
         @Schema(example = "DOCTOR", allowableValues = {"DOCTOR", "NURSE", "PARAMEDIC", "FIREFIGHTER",
                 "MEDICAL_INTERN", "MEDICAL_RESIDENT"}, requiredMode = Schema.RequiredMode.REQUIRED)
         String professionalCategory,
-        @Schema(example = "CMP-12345", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(example = "A3480045365123", requiredMode = Schema.RequiredMode.REQUIRED)
         String professionalLicenseNumber,
         String specialty) {
 }

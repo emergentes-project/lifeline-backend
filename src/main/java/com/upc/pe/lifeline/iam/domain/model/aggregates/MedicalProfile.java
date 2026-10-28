@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Locale;
 
 @Getter
 @Setter
@@ -22,7 +24,7 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
     @Column(nullable = false, length = 40)
     private ProfessionalCategory professionalCategory;
 
-    @Column(nullable = false, unique = true, length = 80)
+    @Column(nullable = false, length = 80)
     private String professionalLicenseNumber;
 
     @Column(length = 120)
@@ -39,7 +41,7 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
                           String professionalLicenseNumber, String specialty) {
         this.user = user;
         this.professionalCategory = ProfessionalCategory.from(professionalCategory);
-        this.professionalLicenseNumber = professionalLicenseNumber;
+        this.professionalLicenseNumber = professionalLicenseNumber.strip().toUpperCase(Locale.ROOT);
         this.specialty = specialty;
         this.verificationStatus = "PENDING";
     }
@@ -47,8 +49,18 @@ public class MedicalProfile extends AuditableAbstractAggregateRoot<MedicalProfil
     public MedicalProfile(RegisterMedicalProfessionalCommand command, User user) {
         this.user = user;
         this.professionalCategory = ProfessionalCategory.from(command.professionalCategory());
-        this.professionalLicenseNumber = command.professionalLicenseNumber().strip();
+        this.professionalLicenseNumber = command.professionalLicenseNumber().strip().toUpperCase(Locale.ROOT);
         this.specialty = command.specialty();
         this.verificationStatus = "PENDING";
+    }
+
+    public void approveVerification() {
+        this.verificationStatus = "APPROVED";
+        this.verifiedAt = LocalDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void rejectVerification() {
+        this.verificationStatus = "REJECTED";
+        this.verifiedAt = null;
     }
 }

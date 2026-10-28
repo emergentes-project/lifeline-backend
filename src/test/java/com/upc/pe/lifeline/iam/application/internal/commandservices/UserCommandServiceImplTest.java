@@ -3,7 +3,6 @@ package com.upc.pe.lifeline.iam.application.internal.commandservices;
 import com.upc.pe.lifeline.iam.application.ports.PasswordHasher;
 import com.upc.pe.lifeline.iam.domain.exceptions.EmailAlreadyExistsException;
 import com.upc.pe.lifeline.iam.domain.exceptions.IamConflictException;
-import com.upc.pe.lifeline.iam.domain.exceptions.ProfessionalLicenseAlreadyExistsException;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.CitizenProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.MedicalProfile;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.User;
@@ -68,13 +67,12 @@ class UserCommandServiceImplTest {
         verify(events).publishEvent(new MedicalProfessionalRegisteredEvent(professional.getId()));
 
         when(users.existsByEmail("citizen@example.com")).thenReturn(true);
-        when(medical.existsByProfessionalLicenseNumber("CMP-123")).thenReturn(true);
         assertThatThrownBy(() -> service.handle(new RegisterCitizenCommand("Citizen@Example.com", "secret", "Ana",
                 "Perez", null, "Lima", "Miraflores", "Av. 1", LocalDate.of(1995, 1, 1), null, null)))
                 .isInstanceOf(EmailAlreadyExistsException.class);
-        assertThatThrownBy(() -> service.handle(new RegisterMedicalProfessionalCommand("other@example.com", "secret",
-                "Luis", "Ruiz", null, "DOCTOR", "CMP-123", null)))
-                .isInstanceOf(ProfessionalLicenseAlreadyExistsException.class);
+        assertThat(service.handle(new RegisterMedicalProfessionalCommand("other@example.com", "secret",
+                "Luis", "Ruiz", null, "DOCTOR", "CMP-123", null)).getEmail())
+                .isEqualTo("other@example.com");
 
         when(users.existsByEmail("citizen@example.com")).thenReturn(false);
         when(users.saveAndFlush(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate"));

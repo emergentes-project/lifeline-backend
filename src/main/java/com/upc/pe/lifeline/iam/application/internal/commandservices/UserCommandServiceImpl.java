@@ -3,7 +3,6 @@ package com.upc.pe.lifeline.iam.application.internal.commandservices;
 import com.upc.pe.lifeline.iam.application.ports.PasswordHasher;
 import com.upc.pe.lifeline.iam.domain.exceptions.IamConflictException;
 import com.upc.pe.lifeline.iam.domain.exceptions.EmailAlreadyExistsException;
-import com.upc.pe.lifeline.iam.domain.exceptions.ProfessionalLicenseAlreadyExistsException;
 import com.upc.pe.lifeline.iam.domain.exceptions.RoleNotFoundException;
 import com.upc.pe.lifeline.iam.domain.exceptions.UserNotCreatedException;
 import com.upc.pe.lifeline.iam.domain.model.aggregates.CitizenProfile;
@@ -74,10 +73,6 @@ public class UserCommandServiceImpl implements UserCommandService {
     public User handle(RegisterMedicalProfessionalCommand command) {
         String email = normalizeEmail(command.email());
         ensureEmailAvailable(email);
-        String licenseNumber = command.professionalLicenseNumber().strip();
-        if (medicalProfileRepository.existsByProfessionalLicenseNumber(licenseNumber)) {
-            throw new ProfessionalLicenseAlreadyExistsException(licenseNumber);
-        }
         User user = new User(command, passwordHasher.hash(command.password()), role(RolesCode.MED2));
         MedicalProfile profile = new MedicalProfile(command, user);
         try {

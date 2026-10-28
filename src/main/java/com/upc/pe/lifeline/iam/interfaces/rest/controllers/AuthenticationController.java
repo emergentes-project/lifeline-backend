@@ -53,9 +53,9 @@ public class AuthenticationController {
     @PostMapping(value = "/sign-up/medical-professionals", consumes = APPLICATION_JSON_VALUE)
     @Operation(summary = "Register a medical professional")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Professional registered with pending verification"),
+            @ApiResponse(responseCode = "201", description = "Professional registered; license verification follows"),
             @ApiResponse(responseCode = "400", description = "Invalid registration data"),
-            @ApiResponse(responseCode = "409", description = "Email or license number already registered")})
+            @ApiResponse(responseCode = "409", description = "Email already registered")})
     public ResponseEntity<UserResource> registerMedicalProfessional(
             @RequestBody RegisterMedicalProfessionalResource resource) {
         var registerMedicalProfessionalCommand =
