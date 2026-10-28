@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Service
 public class ProcessCaseJobCommandServiceImpl implements ProcessCaseJobCommandService {
@@ -52,7 +54,9 @@ public class ProcessCaseJobCommandServiceImpl implements ProcessCaseJobCommandSe
         if (cases.findByConsultationSubmission_Id(submission.getId()).isPresent()) {
             return Result.ALREADY_PRESENT;
         }
-        cases.saveAndFlush(new Case(submission));
+        Case caseEntity = new Case(submission);
+        caseEntity.recordCreation(LocalDateTime.now(ZoneOffset.UTC));
+        cases.saveAndFlush(caseEntity);
         return Result.CREATED;
     }
 
