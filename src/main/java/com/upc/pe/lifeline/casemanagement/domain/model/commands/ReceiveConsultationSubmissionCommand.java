@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UUID citizenUserId,
-                                                   String inputText, String photoStorageKey,
+                                                   String inputText,
                                                    boolean helpRequested, PatientData patient,
                                                    AnswerData answer,
                                                    LocalDateTime consultationRecordedAt,
@@ -21,10 +21,6 @@ public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UU
         }
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("Idempotency key is required");
-        }
-        if ((inputText == null || inputText.isBlank())
-                && (photoStorageKey == null || photoStorageKey.isBlank())) {
-            throw new IllegalArgumentException("Consultation text or photo is required");
         }
     }
 
