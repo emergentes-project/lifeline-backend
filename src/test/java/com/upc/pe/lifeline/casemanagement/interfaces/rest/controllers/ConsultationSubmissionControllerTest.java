@@ -65,7 +65,7 @@ class ConsultationSubmissionControllerTest {
     }
 
     @Test
-    void aBodyWithoutTextOrPhotoIsRejected() throws Exception {
+    void aBodyWithoutTextOrPhotoIsAcceptedWhileItsPhotoIsPending() throws Exception {
         String body = """
                 {"mobileConsultationId":"%s","helpRequested":true,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
                 """.formatted(UUID.randomUUID(), UUID.randomUUID());
@@ -73,8 +73,8 @@ class ConsultationSubmissionControllerTest {
         mvc.perform(post("/api/v1/consultation-submissions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNotEmpty());
     }
 
     @Test
@@ -94,7 +94,7 @@ class ConsultationSubmissionControllerTest {
 
     private static String body(UUID mobileId, UUID idempotencyKey, boolean helpRequested, String inputText) {
         return """
-                {"mobileConsultationId":"%s","inputText":"%s","photoStorageKey":"lifeline/consultations/%s","helpRequested":%s,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
-                """.formatted(mobileId, inputText, mobileId, helpRequested, idempotencyKey);
+                {"mobileConsultationId":"%s","inputText":"%s","helpRequested":%s,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
+                """.formatted(mobileId, inputText, helpRequested, idempotencyKey);
     }
 }

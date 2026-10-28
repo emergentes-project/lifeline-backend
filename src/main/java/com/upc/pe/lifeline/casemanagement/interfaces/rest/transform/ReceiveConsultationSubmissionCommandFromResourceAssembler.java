@@ -10,7 +10,6 @@ public class ReceiveConsultationSubmissionCommandFromResourceAssembler {
                 resource.mobileConsultationId(),
                 resource.citizenUserId(),
                 resource.inputText(),
-                resource.photoStorageKey(),
                 resource.helpRequested(),
                 patient(resource.patient()),
                 answer(resource.answer()),

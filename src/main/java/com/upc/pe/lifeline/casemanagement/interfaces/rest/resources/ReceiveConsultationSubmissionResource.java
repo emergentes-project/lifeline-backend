@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public record ReceiveConsultationSubmissionResource(UUID mobileConsultationId, UUID citizenUserId,
-                                                    String inputText, String photoStorageKey,
+                                                    String inputText,
                                                     boolean helpRequested, PatientResource patient,
                                                     AnswerResource answer,
                                                     LocalDateTime consultationRecordedAt,

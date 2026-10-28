@@ -139,7 +139,7 @@ class ReceiveConsultationSubmissionCommandServiceImplTest {
 
     private static ReceiveConsultationSubmissionCommand command(boolean helpRequested, UUID mobileId,
                                                                 UUID idempotencyKey, String inputText) {
-        return new ReceiveConsultationSubmissionCommand(mobileId, null, inputText, null, helpRequested,
+        return new ReceiveConsultationSubmissionCommand(mobileId, null, inputText, helpRequested,
                 null, null, LocalDateTime.now(ZoneOffset.UTC), idempotencyKey);
     }
 }
