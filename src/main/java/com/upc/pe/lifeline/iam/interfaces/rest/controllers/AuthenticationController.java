@@ -2,6 +2,7 @@ package com.upc.pe.lifeline.iam.interfaces.rest.controllers;
 
 import com.upc.pe.lifeline.iam.application.ports.AccessTokenIssuer;
 import com.upc.pe.lifeline.iam.domain.services.UserCommandService;
+import com.upc.pe.lifeline.iam.domain.model.commands.SignOutUserCommand;
 import com.upc.pe.lifeline.iam.interfaces.rest.resources.AuthenticatedUserResource;
 import com.upc.pe.lifeline.iam.interfaces.rest.resources.RegisterCitizenResource;
 import com.upc.pe.lifeline.iam.interfaces.rest.resources.RegisterMedicalProfessionalResource;
@@ -16,14 +17,19 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import java.security.Principal;
+import java.util.UUID;
 
 @RestController
 @RequestMapping(value = "/api/v1/authentication", produces = APPLICATION_JSON_VALUE)
@@ -78,5 +84,18 @@ public class AuthenticationController {
         var authenticatedUserResource =
                 AuthenticatedUserResourceFromEntityAssembler.toResourceFromEntity(user, token);
         return ResponseEntity.ok(authenticatedUserResource);
+    }
+
+    @PostMapping("/sign-out")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Sign out and revoke the current access token")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Access token revoked"),
+            @ApiResponse(responseCode = "401", description = "Invalid or revoked access token")})
+    public ResponseEntity<Void> signOut(@RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+                                        Principal principal) {
+        String token = authorization.substring(7);
+        userCommandService.handle(new SignOutUserCommand(UUID.fromString(principal.getName()), token));
+        return ResponseEntity.noContent().build();
     }
 }

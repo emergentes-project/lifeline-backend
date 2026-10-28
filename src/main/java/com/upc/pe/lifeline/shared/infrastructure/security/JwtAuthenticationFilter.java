@@ -2,6 +2,7 @@ package com.upc.pe.lifeline.shared.infrastructure.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import com.upc.pe.lifeline.shared.application.ports.AccessTokenRevocationStore;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,10 +21,13 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final RestAuthenticationEntryPoint exceptionHandler;
+    private final AccessTokenRevocationStore accessTokenRevocationStore;
 
-    public JwtAuthenticationFilter(JwtService jwtService, RestAuthenticationEntryPoint exceptionHandler) {
+    public JwtAuthenticationFilter(JwtService jwtService, RestAuthenticationEntryPoint exceptionHandler,
+                                   AccessTokenRevocationStore accessTokenRevocationStore) {
         this.jwtService = jwtService;
         this.exceptionHandler = exceptionHandler;
+        this.accessTokenRevocationStore = accessTokenRevocationStore;
     }
 
     @Override
@@ -39,7 +43,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     || authorization.substring(7).isBlank()) {
                 throw new BadCredentialsException("Invalid authorization header");
             }
-            Claims claims = jwtService.parseClaims(authorization.substring(7));
+            String token = authorization.substring(7);
+            Claims claims = jwtService.parseClaims(token);
+            if (accessTokenRevocationStore.isRevoked(token)) {
+                throw new BadCredentialsException("Access token has been revoked");
+            }
             String authority = "service".equals(claims.get("token_use", String.class))
                     ? "SERVICE" : "ROLE_" + claims.get("role", String.class);
             var authentication = UsernamePasswordAuthenticationToken.authenticated(
