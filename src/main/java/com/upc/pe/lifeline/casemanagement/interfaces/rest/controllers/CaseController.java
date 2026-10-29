@@ -8,10 +8,12 @@ import com.upc.pe.lifeline.casemanagement.domain.model.commands.CloseCaseCommand
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetCasesByFilterQuery;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetCaseStatusHistoryByCaseIdQuery;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetMyCasesQuery;
+import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetCasePageQuery;
 import com.upc.pe.lifeline.casemanagement.application.ports.ProfessionalEligibilityChecker;
 import com.upc.pe.lifeline.casemanagement.domain.services.CaseQueryService;
 import com.upc.pe.lifeline.casemanagement.domain.services.CaseCommandService;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CaseResource;
+import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CasePageResource;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CaseStatusHistoryResource;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.ChangeCaseStatusResource;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CloseCaseResource;
@@ -63,6 +65,38 @@ public class CaseController {
                 UUID.fromString(authentication.getName()));
         return ResponseEntity.ok(queries.handle(query).stream()
                 .map(CaseResourceFromEntityAssembler::toResourceFromEntity).toList());
+    }
+
+    @GetMapping("/paged")
+    @PreAuthorize("hasRole('MEDICAL_PROFESSIONAL')")
+    public ResponseEntity<CasePageResource> page(@RequestParam(required = false) String status,
+                                                  @RequestParam(required = false) String assignmentRelation,
+                                                  @RequestParam(required = false) String priority,
+                                                  @RequestParam(required = false) String province,
+                                                  @RequestParam(defaultValue = "0") int page,
+                                                  @RequestParam(defaultValue = "10") int size,
+                                                  Authentication authentication) {
+        requireApproved(authentication);
+        var result = queries.handle(new GetCasePageQuery(status, assignmentRelation, priority, province,
+                UUID.fromString(authentication.getName()), null, page, size));
+        return ResponseEntity.ok(new CasePageResource(result.getContent().stream()
+                .map(CaseResourceFromEntityAssembler::toResourceFromEntity).toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages()));
+    }
+
+    @GetMapping("/me/paged")
+    @PreAuthorize("hasRole('CITIZEN')")
+    public ResponseEntity<CasePageResource> myPage(@RequestParam(required = false) String status,
+                                                    @RequestParam(required = false) String priority,
+                                                    @RequestParam(required = false) String province,
+                                                    @RequestParam(defaultValue = "0") int page,
+                                                    @RequestParam(defaultValue = "10") int size,
+                                                    Authentication authentication) {
+        var result = queries.handle(new GetCasePageQuery(status, null, priority, province,
+                null, UUID.fromString(authentication.getName()), page, size));
+        return ResponseEntity.ok(new CasePageResource(result.getContent().stream()
+                .map(CaseResourceFromEntityAssembler::toResourceFromEntity).toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages()));
     }
 
     @GetMapping("/me")

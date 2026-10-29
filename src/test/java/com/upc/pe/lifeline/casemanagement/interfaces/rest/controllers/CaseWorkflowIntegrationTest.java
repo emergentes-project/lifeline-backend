@@ -114,6 +114,18 @@ class CaseWorkflowIntegrationTest {
         mvc.perform(get("/api/v1/cases/me").header(HttpHeaders.AUTHORIZATION, token(citizen, "CITIZEN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(caseId.toString()));
+        mvc.perform(get("/api/v1/cases/paged").header(HttpHeaders.AUTHORIZATION, medicalToken)
+                        .param("status", "CLOSED").param("assignmentRelation", "ASSIGNED_TO_ME")
+                        .param("province", "Lim").param("page", "0").param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(caseId.toString()))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1));
+        mvc.perform(get("/api/v1/cases/me/paged")
+                        .header(HttpHeaders.AUTHORIZATION, token(citizen, "CITIZEN"))
+                        .param("status", "AVAILABLE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
         UUID consultationId = cases.findById(caseId).orElseThrow().getConsultationSubmission().getId();
         mvc.perform(get("/api/v1/consultation-submissions/{id}", consultationId)
                         .header(HttpHeaders.AUTHORIZATION, medicalToken))
@@ -135,6 +147,31 @@ class CaseWorkflowIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, token(professional, "MEDICAL_PROFESSIONAL")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requesterPhone").value("988777666"));
+    }
+
+    @Test
+    void pagedCasesKeepFiltersAcrossPages() throws Exception {
+        User professional = professional("E348" + digits() + "23");
+        String medicalToken = token(professional, "MEDICAL_PROFESSIONAL");
+        UUID first = caseFor(citizen());
+        UUID second = caseFor(citizen());
+        mvc.perform(post("/api/v1/cases/{id}/assign", first)
+                .header(HttpHeaders.AUTHORIZATION, medicalToken)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/cases/{id}/assign", second)
+                .header(HttpHeaders.AUTHORIZATION, medicalToken)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/cases/paged").header(HttpHeaders.AUTHORIZATION, medicalToken)
+                        .param("status", "ASSIGNED").param("assignmentRelation", "ASSIGNED_TO_ME")
+                        .param("province", "Lima").param("page", "0").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2));
+        mvc.perform(get("/api/v1/cases/paged").header(HttpHeaders.AUTHORIZATION, medicalToken)
+                        .param("status", "ASSIGNED").param("assignmentRelation", "ASSIGNED_TO_ME")
+                        .param("province", "Lima").param("page", "1").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.totalElements").value(2));
     }
 
     @Test
