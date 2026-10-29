@@ -11,7 +11,8 @@ public record ReceiveConsultationSubmissionResource(UUID mobileConsultationId, U
                                                     boolean helpRequested, PatientResource patient,
                                                     AnswerResource answer,
                                                     LocalDateTime consultationRecordedAt,
-                                                    UUID idempotencyKey) {
+                                                    UUID idempotencyKey,
+                                                    String requesterPhone) {
     public record PatientResource(String name, Integer ageYears, String locationDescription,
                                   String province, BigDecimal latitude, BigDecimal longitude) {
     }

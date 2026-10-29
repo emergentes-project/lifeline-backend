@@ -14,7 +14,7 @@ public class ReceiveConsultationSubmissionCommandFromResourceAssembler {
                 patient(resource.patient()),
                 answer(resource.answer()),
                 resource.consultationRecordedAt(),
-                resource.idempotencyKey());
+                resource.idempotencyKey(), resource.requesterPhone());
     }
 
     private static ReceiveConsultationSubmissionCommand.PatientData patient(

@@ -8,6 +8,7 @@ import com.upc.pe.lifeline.casemanagement.domain.model.commands.CloseCaseCommand
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetCasesByFilterQuery;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetCaseStatusHistoryByCaseIdQuery;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetMyCasesQuery;
+import com.upc.pe.lifeline.casemanagement.application.ports.ProfessionalEligibilityChecker;
 import com.upc.pe.lifeline.casemanagement.domain.services.CaseQueryService;
 import com.upc.pe.lifeline.casemanagement.domain.services.CaseCommandService;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CaseResource;
@@ -42,10 +43,13 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 public class CaseController {
     private final CaseQueryService queries;
     private final CaseCommandService commands;
+    private final ProfessionalEligibilityChecker eligibility;
 
-    public CaseController(CaseQueryService queries, CaseCommandService commands) {
+    public CaseController(CaseQueryService queries, CaseCommandService commands,
+                          ProfessionalEligibilityChecker eligibility) {
         this.queries = queries;
         this.commands = commands;
+        this.eligibility = eligibility;
     }
 
     @GetMapping
@@ -54,6 +58,7 @@ public class CaseController {
                                                      @RequestParam(required = false)
                                                      String assignmentRelation,
                                                      Authentication authentication) {
+        requireApproved(authentication);
         var query = new GetCasesByFilterQuery(status, assignmentRelation,
                 UUID.fromString(authentication.getName()));
         return ResponseEntity.ok(queries.handle(query).stream()
@@ -120,8 +125,17 @@ public class CaseController {
                 .anyMatch(authority -> "ROLE_MEDICAL_PROFESSIONAL".equals(authority.getAuthority()));
         var citizenUserId = caseEntity.getConsultationSubmission().getCitizenUserId();
         boolean owner = citizenUserId != null && citizenUserId.userId().toString().equals(authentication.getName());
+        if (professional) {
+            requireApproved(authentication);
+        }
         if (!professional && !owner) {
             throw new AccessDeniedException("Case is not accessible to this user");
+        }
+    }
+
+    private void requireApproved(Authentication authentication) {
+        if (!eligibility.isApproved(UUID.fromString(authentication.getName()))) {
+            throw new AccessDeniedException("An approved medical profile is required");
         }
     }
 }

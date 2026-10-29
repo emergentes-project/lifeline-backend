@@ -17,7 +17,7 @@ import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -60,7 +60,7 @@ class SharedConfigurationTest {
     @Autowired
     private EntityManager entityManager;
 
-    @MockitoBean(name = "auditingDateTimeProvider")
+    @MockitoSpyBean(name = "auditingDateTimeProvider")
     private DateTimeProvider dateTimeProvider;
 
     @Test

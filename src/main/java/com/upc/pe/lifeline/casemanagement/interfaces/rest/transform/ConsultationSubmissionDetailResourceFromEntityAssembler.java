@@ -7,6 +7,11 @@ import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.Consultation
 
 public class ConsultationSubmissionDetailResourceFromEntityAssembler {
     public static ConsultationSubmissionDetailResource toResourceFromEntity(ConsultationSubmission submission) {
+        return toResourceFromEntity(submission, submission.getRequesterPhone());
+    }
+
+    public static ConsultationSubmissionDetailResource toResourceFromEntity(
+            ConsultationSubmission submission, String requesterPhone) {
         Patient patient = submission.getPatient();
         ConsultationAnswer answer = submission.getAnswer();
         return new ConsultationSubmissionDetailResource(submission.getId(), submission.getMobileConsultationId(),
@@ -19,6 +24,7 @@ public class ConsultationSubmissionDetailResourceFromEntityAssembler {
                 answer == null ? null : new ConsultationSubmissionDetailResource.AnswerResource(
                         answer.getGuidanceText(), answer.getGuidanceStatus().name(),
                         answer.getPreliminaryPriority() == null ? null : answer.getPreliminaryPriority().name(),
-                        answer.isProfessionalHelpRecommended(), answer.getSourceReferences()));
+                        answer.isProfessionalHelpRecommended(), answer.getSourceReferences()),
+                requesterPhone);
     }
 }

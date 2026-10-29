@@ -26,6 +26,9 @@ public class ConsultationSubmission extends AuditableAbstractAggregateRoot<Consu
     @Column(columnDefinition = "text")
     private String inputText;
 
+    @Column(length = 30)
+    private String requesterPhone;
+
     @Column(columnDefinition = "text")
     private String photoStorageKey;
 

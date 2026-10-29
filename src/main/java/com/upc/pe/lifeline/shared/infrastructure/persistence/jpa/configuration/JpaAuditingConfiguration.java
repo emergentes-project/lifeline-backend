@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.TemporalAccessor;
 import java.util.Optional;
 
 @Configuration
@@ -14,6 +15,13 @@ import java.util.Optional;
 public class JpaAuditingConfiguration {
     @Bean
     public DateTimeProvider auditingDateTimeProvider() {
-        return () -> Optional.of(LocalDateTime.now(ZoneOffset.UTC));
+        return new UtcDateTimeProvider();
+    }
+
+    private static final class UtcDateTimeProvider implements DateTimeProvider {
+        @Override
+        public Optional<TemporalAccessor> getNow() {
+            return Optional.of(LocalDateTime.now(ZoneOffset.UTC));
+        }
     }
 }

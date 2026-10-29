@@ -11,7 +11,16 @@ public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UU
                                                    boolean helpRequested, PatientData patient,
                                                    AnswerData answer,
                                                    LocalDateTime consultationRecordedAt,
-                                                   UUID idempotencyKey) {
+                                                   UUID idempotencyKey,
+                                                   String requesterPhone) {
+    public ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UUID citizenUserId,
+                                                String inputText, boolean helpRequested, PatientData patient,
+                                                AnswerData answer, LocalDateTime consultationRecordedAt,
+                                                UUID idempotencyKey) {
+        this(mobileConsultationId, citizenUserId, inputText, helpRequested, patient,
+                answer, consultationRecordedAt, idempotencyKey, null);
+    }
+
     public ReceiveConsultationSubmissionCommand {
         if (mobileConsultationId == null) {
             throw new IllegalArgumentException("Mobile consultation ID is required");
@@ -21,6 +30,11 @@ public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UU
         }
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("Idempotency key is required");
+        }
+        requesterPhone = requesterPhone == null || requesterPhone.isBlank()
+                ? null : requesterPhone.strip();
+        if (requesterPhone != null && !requesterPhone.matches("\\+?[0-9 ()-]{6,30}")) {
+            throw new IllegalArgumentException("Requester phone is invalid");
         }
     }
 

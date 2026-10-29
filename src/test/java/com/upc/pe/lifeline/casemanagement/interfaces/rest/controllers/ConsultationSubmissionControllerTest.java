@@ -1,5 +1,6 @@
 package com.upc.pe.lifeline.casemanagement.interfaces.rest.controllers;
 
+import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.ConsultationSubmissionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,6 +30,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ConsultationSubmissionControllerTest {
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private ConsultationSubmissionRepository submissions;
+
+    @Test
+    void receptionStoresRequesterPhoneForGuest() throws Exception {
+        UUID key = UUID.randomUUID();
+        String body = """
+                {"mobileConsultationId":"%s","inputText":"Ayuda","helpRequested":true,
+                 "requesterPhone":"988777666","consultationRecordedAt":"2026-10-27T18:00:00",
+                 "idempotencyKey":"%s"}
+                """.formatted(UUID.randomUUID(), key);
+        mvc.perform(post("/api/v1/consultation-submissions")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+        assertThat(submissions.findByIdempotencyKey(key).orElseThrow().getRequesterPhone())
+                .isEqualTo("988777666");
+    }
 
     @Test
     void firstReceptionReturnsCreatedAndTheReplayReturnsTheStoredSubmission() throws Exception {

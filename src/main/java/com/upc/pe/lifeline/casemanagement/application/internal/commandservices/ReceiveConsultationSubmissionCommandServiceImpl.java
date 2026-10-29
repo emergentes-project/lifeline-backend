@@ -67,6 +67,7 @@ public class ReceiveConsultationSubmissionCommandServiceImpl implements ReceiveC
                 command.idempotencyKey(),
                 patient(command.patient()),
                 answer(command.answer()));
+        submission.setRequesterPhone(command.requesterPhone());
         submissions.saveAndFlush(submission);
         if (command.helpRequested() && !submission.isPhotoPending()) {
             events.saveAndFlush(ConsultationReceivedOutboxEventFactory.create(submission));

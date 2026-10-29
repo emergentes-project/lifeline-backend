@@ -9,7 +9,8 @@ import java.util.UUID;
 public record ConsultationSubmissionDetailResource(UUID id, UUID mobileConsultationId, UUID citizenUserId,
                                                    String inputText, boolean hasPhoto, boolean helpRequested,
                                                    LocalDateTime consultationRecordedAt, LocalDateTime receivedAt,
-                                                   PatientResource patient, AnswerResource answer) {
+                                                   PatientResource patient, AnswerResource answer,
+                                                   String requesterPhone) {
     public record PatientResource(String name, Integer ageYears, String locationDescription,
                                   String province, BigDecimal latitude, BigDecimal longitude) {
     }

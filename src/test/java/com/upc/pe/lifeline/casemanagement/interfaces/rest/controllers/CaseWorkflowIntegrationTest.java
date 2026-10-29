@@ -114,11 +114,27 @@ class CaseWorkflowIntegrationTest {
         mvc.perform(get("/api/v1/cases/me").header(HttpHeaders.AUTHORIZATION, token(citizen, "CITIZEN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(caseId.toString()));
+        UUID consultationId = cases.findById(caseId).orElseThrow().getConsultationSubmission().getId();
+        mvc.perform(get("/api/v1/consultation-submissions/{id}", consultationId)
+                        .header(HttpHeaders.AUTHORIZATION, medicalToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requesterPhone").value("999111222"));
         mvc.perform(get("/api/v1/consultation-submissions")
                         .header(HttpHeaders.AUTHORIZATION, medicalToken)
                         .param("province", "Lima").param("helpRequested", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].patient.province").value("Lima"));
+    }
+
+    @Test
+    void approvedProfessionalCanSeeGuestRequesterPhone() throws Exception {
+        User professional = professional("D348" + digits() + "23");
+        UUID caseId = caseFor(null, "988777666");
+        UUID consultationId = cases.findById(caseId).orElseThrow().getConsultationSubmission().getId();
+        mvc.perform(get("/api/v1/consultation-submissions/{id}", consultationId)
+                        .header(HttpHeaders.AUTHORIZATION, token(professional, "MEDICAL_PROFESSIONAL")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requesterPhone").value("988777666"));
     }
 
     @Test
@@ -130,6 +146,19 @@ class CaseWorkflowIntegrationTest {
         User otherProfessional = professional("C348" + digits() + "23");
         UUID caseId = caseFor(owner);
 
+        mvc.perform(get("/api/v1/cases")
+                        .header(HttpHeaders.AUTHORIZATION, token(unapproved, "MEDICAL_PROFESSIONAL")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/cases/{id}", caseId)
+                        .header(HttpHeaders.AUTHORIZATION, token(unapproved, "MEDICAL_PROFESSIONAL")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/cases/{id}/history", caseId)
+                        .header(HttpHeaders.AUTHORIZATION, token(unapproved, "MEDICAL_PROFESSIONAL")))
+                .andExpect(status().isForbidden());
+        UUID consultationId = cases.findById(caseId).orElseThrow().getConsultationSubmission().getId();
+        mvc.perform(get("/api/v1/consultation-submissions/{id}", consultationId)
+                        .header(HttpHeaders.AUTHORIZATION, token(unapproved, "MEDICAL_PROFESSIONAL")))
+                .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/cases/{id}/assign", caseId)
                         .header(HttpHeaders.AUTHORIZATION, token(unapproved, "MEDICAL_PROFESSIONAL")))
                 .andExpect(status().isForbidden());
@@ -146,7 +175,6 @@ class CaseWorkflowIntegrationTest {
         mvc.perform(get("/api/v1/cases/{id}", caseId)
                         .header(HttpHeaders.AUTHORIZATION, token(otherCitizen, "CITIZEN")))
                 .andExpect(status().isForbidden());
-        UUID consultationId = cases.findById(caseId).orElseThrow().getConsultationSubmission().getId();
         mvc.perform(get("/api/v1/consultation-submissions/{id}", consultationId)
                         .header(HttpHeaders.AUTHORIZATION, token(owner, "CITIZEN")))
                 .andExpect(status().isOk());
@@ -163,10 +191,14 @@ class CaseWorkflowIntegrationTest {
     }
 
     private UUID caseFor(User citizen) {
+        return caseFor(citizen, null);
+    }
+
+    private UUID caseFor(User citizen, String requesterPhone) {
         var receptionResult = reception.handle(new ReceiveConsultationSubmissionCommand(
-                UUID.randomUUID(), citizen.getId(), "Necesito ayuda", true,
+                UUID.randomUUID(), citizen == null ? null : citizen.getId(), "Necesito ayuda", true,
                 new ReceiveConsultationSubmissionCommand.PatientData("Ana", 31, "Centro", "Lima", null, null),
-                null, LocalDateTime.now(ZoneOffset.UTC), UUID.randomUUID()));
+                null, LocalDateTime.now(ZoneOffset.UTC), UUID.randomUUID(), requesterPhone));
         UUID submissionId = receptionResult.submission().getId();
         UUID jobId = events.findAll().stream()
                 .filter(event -> event.getAggregateId().equals(submissionId))
@@ -177,7 +209,7 @@ class CaseWorkflowIntegrationTest {
 
     private User citizen() {
         return users.handle(new RegisterCitizenCommand(UUID.randomUUID() + "@example.com", "secret",
-                "Ana", "Perez", null, "Lima", "Centro", "Av. 1", LocalDate.of(1995, 1, 1), null, null));
+                "Ana", "Perez", "999111222", "Lima", "Centro", "Av. 1", LocalDate.of(1995, 1, 1), null, null));
     }
 
     private User professional(String license) {

@@ -6,6 +6,7 @@ import com.upc.pe.lifeline.casemanagement.domain.services.ReceiveConsultationSub
 import com.upc.pe.lifeline.casemanagement.domain.services.ConsultationSubmissionQueryService;
 import com.upc.pe.lifeline.casemanagement.domain.services.ConsultationPhotoCommandService;
 import com.upc.pe.lifeline.casemanagement.domain.services.ConsultationPhotoQueryService;
+import com.upc.pe.lifeline.casemanagement.application.ports.ProfessionalEligibilityChecker;
 import com.upc.pe.lifeline.casemanagement.domain.model.commands.UploadConsultationPhotoCommand;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.GetConsultationPhotoUrlQuery;
 import com.upc.pe.lifeline.casemanagement.domain.model.queries.FilterConsultationSubmissionsQuery;
@@ -17,6 +18,8 @@ import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.Consultation
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.ReceiveConsultationSubmissionResource;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.transform.ConsultationSubmissionDetailResourceFromEntityAssembler;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.transform.ReceiveConsultationSubmissionCommandFromResourceAssembler;
+import com.upc.pe.lifeline.iam.domain.model.queries.GetUserByIdQuery;
+import com.upc.pe.lifeline.iam.domain.services.UserQueryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,15 +51,21 @@ public class ConsultationSubmissionController {
     private final ConsultationSubmissionQueryService queries;
     private final ConsultationPhotoCommandService photoCommands;
     private final ConsultationPhotoQueryService photoQueries;
+    private final ProfessionalEligibilityChecker eligibility;
+    private final UserQueryService users;
 
     public ConsultationSubmissionController(ReceiveConsultationSubmissionCommandService reception,
                                             ConsultationSubmissionQueryService queries,
                                             ConsultationPhotoCommandService photoCommands,
-                                            ConsultationPhotoQueryService photoQueries) {
+                                            ConsultationPhotoQueryService photoQueries,
+                                            ProfessionalEligibilityChecker eligibility,
+                                            UserQueryService users) {
         this.reception = reception;
         this.queries = queries;
         this.photoCommands = photoCommands;
         this.photoQueries = photoQueries;
+        this.eligibility = eligibility;
+        this.users = users;
     }
 
     @PostMapping(value = "/{consultationId}/photo", consumes = "multipart/form-data")
@@ -91,7 +100,9 @@ public class ConsultationSubmissionController {
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<List<ConsultationSubmissionDetailResource>> filter(
             @RequestParam(required = false) String province,
-            @RequestParam(required = false) Boolean helpRequested) {
+            @RequestParam(required = false) Boolean helpRequested,
+            Authentication authentication) {
+        requireApproved(authentication);
         var resources = queries.handle(new FilterConsultationSubmissionsQuery(province, helpRequested)).stream()
                 .map(ConsultationSubmissionDetailResourceFromEntityAssembler::toResourceFromEntity).toList();
         return ResponseEntity.ok(resources);
@@ -106,10 +117,29 @@ public class ConsultationSubmissionController {
                 .anyMatch(authority -> "ROLE_MEDICAL_PROFESSIONAL".equals(authority.getAuthority()));
         boolean owner = submission.getCitizenUserId() != null
                 && submission.getCitizenUserId().userId().toString().equals(authentication.getName());
+        if (professional) {
+            requireApproved(authentication);
+        }
         if (!professional && !owner) {
             throw new AccessDeniedException("Consultation is not accessible to this user");
         }
-        return ResponseEntity.ok(ConsultationSubmissionDetailResourceFromEntityAssembler.toResourceFromEntity(submission));
+        String requesterPhone = submission.getRequesterPhone();
+        if (requesterPhone == null && submission.getCitizenUserId() != null) {
+            try {
+                requesterPhone = users.handle(new GetUserByIdQuery(
+                        submission.getCitizenUserId().userId())).getPhone();
+            } catch (NoSuchElementException ignored) {
+                requesterPhone = null;
+            }
+        }
+        return ResponseEntity.ok(ConsultationSubmissionDetailResourceFromEntityAssembler
+                .toResourceFromEntity(submission, requesterPhone));
+    }
+
+    private void requireApproved(Authentication authentication) {
+        if (!eligibility.isApproved(UUID.fromString(authentication.getName()))) {
+            throw new AccessDeniedException("An approved medical profile is required");
+        }
     }
 
     @PostMapping(consumes = APPLICATION_JSON_VALUE)
