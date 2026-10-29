@@ -49,6 +49,7 @@ public class SecurityConfiguration {
                                 "/api/v1/authentication/sign-up/medical-professionals",
                                 "/api/v1/consultation-submissions",
                                 "/api/v1/consultation-submissions/{consultationId}/photo").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/notification-tokens").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/roles").permitAll()
                         .requestMatchers("/api/v1/internal/**").hasAuthority("SERVICE")
                         .anyRequest().hasAnyRole("CITIZEN", "MEDICAL_PROFESSIONAL"))
