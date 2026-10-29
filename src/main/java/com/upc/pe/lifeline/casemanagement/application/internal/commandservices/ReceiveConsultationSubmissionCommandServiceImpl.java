@@ -94,7 +94,7 @@ public class ReceiveConsultationSubmissionCommandServiceImpl implements ReceiveC
             return null;
         }
         return new Patient(null, data.name(), data.ageYears(), data.locationDescription(),
-                data.province(), data.latitude(), data.longitude());
+                data.province(), data.latitude(), data.longitude(), data.phone());
     }
 
     private ConsultationAnswer answer(ReceiveConsultationSubmissionCommand.AnswerData data) {

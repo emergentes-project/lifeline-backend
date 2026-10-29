@@ -22,14 +22,25 @@ public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UU
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("Idempotency key is required");
         }
-        if ((inputText == null || inputText.isBlank())
-                && (photoStorageKey == null || photoStorageKey.isBlank())) {
-            throw new IllegalArgumentException("Consultation text or photo is required");
-        }
     }
 
     public record PatientData(String name, Integer ageYears, String locationDescription,
-                              String province, BigDecimal latitude, BigDecimal longitude) {
+                              String province, BigDecimal latitude, BigDecimal longitude,
+                              String phone) {
+        public PatientData {
+            phone = normalizePhone(phone);
+        }
+
+        private static String normalizePhone(String phone) {
+            if (phone == null || phone.isBlank()) {
+                return null;
+            }
+            String trimmed = phone.strip();
+            if (trimmed.length() > 30) {
+                throw new IllegalArgumentException("Patient phone must not exceed 30 characters");
+            }
+            return trimmed;
+        }
     }
 
     public record AnswerData(String guidanceText, String guidanceStatus,

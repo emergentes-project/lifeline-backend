@@ -81,7 +81,7 @@ class BackendEntitiesPersistenceTest {
     void persistsAPhotoOnlySubmissionWithItsPatientAnswerAndCaseHistory() {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         Patient patient = new Patient(null, "Ana", 30, "Near the main square", "Lima",
-                new BigDecimal("-12.046374"), new BigDecimal("-77.042793"));
+                new BigDecimal("-12.046374"), new BigDecimal("-77.042793"), null);
         UUID patientId = patient.getId();
         assertThat(patientId).isNotNull();
         List<Map<String, Object>> references = List.of(Map.of("source", "baseline", "section", "first-aid"));

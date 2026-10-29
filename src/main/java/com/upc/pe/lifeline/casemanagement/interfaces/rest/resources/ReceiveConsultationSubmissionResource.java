@@ -13,7 +13,8 @@ public record ReceiveConsultationSubmissionResource(UUID mobileConsultationId, U
                                                     LocalDateTime consultationRecordedAt,
                                                     UUID idempotencyKey) {
     public record PatientResource(String name, Integer ageYears, String locationDescription,
-                                  String province, BigDecimal latitude, BigDecimal longitude) {
+                                  String province, BigDecimal latitude, BigDecimal longitude,
+                                  String phone) {
     }
 
     public record AnswerResource(String guidanceText, String guidanceStatus,

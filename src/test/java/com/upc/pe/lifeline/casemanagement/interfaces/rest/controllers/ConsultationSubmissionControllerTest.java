@@ -1,14 +1,19 @@
 package com.upc.pe.lifeline.casemanagement.interfaces.rest.controllers;
 
+import com.jayway.jsonpath.JsonPath;
+import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.ConsultationSubmissionRepository;
+import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.OutboxEventRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,6 +33,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ConsultationSubmissionControllerTest {
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private ConsultationSubmissionRepository submissions;
+
+    @Autowired
+    private OutboxEventRepository events;
 
     @Test
     void firstReceptionReturnsCreatedAndTheReplayReturnsTheStoredSubmission() throws Exception {
@@ -65,10 +76,59 @@ class ConsultationSubmissionControllerTest {
     }
 
     @Test
-    void aBodyWithoutTextOrPhotoIsRejected() throws Exception {
+    void aSubmissionWithoutTextOrPhotoIsAcceptedAndKeepsASinglePendingEvent() throws Exception {
+        UUID key = UUID.randomUUID();
         String body = """
                 {"mobileConsultationId":"%s","helpRequested":true,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
-                """.formatted(UUID.randomUUID(), UUID.randomUUID());
+                """.formatted(UUID.randomUUID(), key);
+
+        String created = mvc.perform(post("/api/v1/consultation-submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID consultationId = UUID.fromString(JsonPath.read(created, "$.id"));
+
+        mvc.perform(post("/api/v1/consultation-submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(consultationId.toString()));
+
+        var pending = events.findAll().stream()
+                .filter(event -> consultationId.equals(event.getAggregateId()))
+                .toList();
+        assertThat(pending).hasSize(1);
+        assertThat(pending.getFirst().getStatus()).isEqualTo("PENDING");
+        assertThat(pending.getFirst().getEventType()).isEqualTo("consultation.received");
+        assertThat(pending.getFirst().getPayload()).containsOnlyKeys(
+                "jobId", "eventType", "aggregateId", "idempotencyKey");
+    }
+
+    @Test
+    @Transactional
+    void patientPhoneIsStoredWithoutSurroundingSpaces() throws Exception {
+        UUID key = UUID.randomUUID();
+        String body = """
+                {"mobileConsultationId":"%s","inputText":"dolor","helpRequested":false,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s","patient":{"name":"Ana","phone":"  +51987654321  "}}
+                """.formatted(UUID.randomUUID(), key);
+
+        String created = mvc.perform(post("/api/v1/consultation-submissions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID consultationId = UUID.fromString(JsonPath.read(created, "$.id"));
+
+        assertThat(submissions.findById(consultationId).orElseThrow().getPatient().getPhone())
+                .isEqualTo("+51987654321");
+    }
+
+    @Test
+    void aPatientPhoneLongerThanThirtyCharactersIsRejected() throws Exception {
+        String body = """
+                {"mobileConsultationId":"%s","inputText":"dolor","helpRequested":true,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s","patient":{"phone":" %s "}}
+                """.formatted(UUID.randomUUID(), UUID.randomUUID(), "1".repeat(31));
 
         mvc.perform(post("/api/v1/consultation-submissions")
                         .contentType(MediaType.APPLICATION_JSON)

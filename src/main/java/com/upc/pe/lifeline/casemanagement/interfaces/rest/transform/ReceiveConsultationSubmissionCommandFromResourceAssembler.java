@@ -25,7 +25,7 @@ public class ReceiveConsultationSubmissionCommandFromResourceAssembler {
         }
         return new ReceiveConsultationSubmissionCommand.PatientData(
                 patient.name(), patient.ageYears(), patient.locationDescription(),
-                patient.province(), patient.latitude(), patient.longitude());
+                patient.province(), patient.latitude(), patient.longitude(), patient.phone());
     }
 
     private static ReceiveConsultationSubmissionCommand.AnswerData answer(
