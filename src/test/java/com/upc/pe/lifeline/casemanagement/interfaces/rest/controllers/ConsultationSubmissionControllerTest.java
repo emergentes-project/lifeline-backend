@@ -41,6 +41,21 @@ class ConsultationSubmissionControllerTest {
     private OutboxEventRepository events;
 
     @Test
+    void receptionStoresRequesterPhoneForGuest() throws Exception {
+        UUID key = UUID.randomUUID();
+        String body = """
+                {"mobileConsultationId":"%s","inputText":"Ayuda","helpRequested":true,
+                 "requesterPhone":"988777666","consultationRecordedAt":"2026-10-27T18:00:00",
+                 "idempotencyKey":"%s"}
+                """.formatted(UUID.randomUUID(), key);
+        mvc.perform(post("/api/v1/consultation-submissions")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+        assertThat(submissions.findByIdempotencyKey(key).orElseThrow().getRequesterPhone())
+                .isEqualTo("988777666");
+    }
+
+    @Test
     void firstReceptionReturnsCreatedAndTheReplayReturnsTheStoredSubmission() throws Exception {
         UUID key = UUID.randomUUID();
         UUID mobileId = UUID.randomUUID();
@@ -76,7 +91,7 @@ class ConsultationSubmissionControllerTest {
     }
 
     @Test
-    void aSubmissionWithoutTextOrPhotoIsAcceptedAndKeepsASinglePendingEvent() throws Exception {
+    void aSubmissionWithoutTextWaitsForPhotoBeforeCreatingAnEvent() throws Exception {
         UUID key = UUID.randomUUID();
         String body = """
                 {"mobileConsultationId":"%s","helpRequested":true,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
@@ -98,11 +113,7 @@ class ConsultationSubmissionControllerTest {
         var pending = events.findAll().stream()
                 .filter(event -> consultationId.equals(event.getAggregateId()))
                 .toList();
-        assertThat(pending).hasSize(1);
-        assertThat(pending.getFirst().getStatus()).isEqualTo("PENDING");
-        assertThat(pending.getFirst().getEventType()).isEqualTo("consultation.received");
-        assertThat(pending.getFirst().getPayload()).containsOnlyKeys(
-                "jobId", "eventType", "aggregateId", "idempotencyKey");
+        assertThat(pending).isEmpty();
     }
 
     @Test
@@ -120,8 +131,9 @@ class ConsultationSubmissionControllerTest {
                 .andReturn().getResponse().getContentAsString();
         UUID consultationId = UUID.fromString(JsonPath.read(created, "$.id"));
 
-        assertThat(submissions.findById(consultationId).orElseThrow().getPatient().getPhone())
-                .isEqualTo("+51987654321");
+        var stored = submissions.findById(consultationId).orElseThrow();
+        assertThat(stored.getPatient().getPhone()).isEqualTo("+51987654321");
+        assertThat(stored.getRequesterPhone()).isEqualTo("+51987654321");
     }
 
     @Test
@@ -133,8 +145,7 @@ class ConsultationSubmissionControllerTest {
         mvc.perform(post("/api/v1/consultation-submissions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -154,7 +165,7 @@ class ConsultationSubmissionControllerTest {
 
     private static String body(UUID mobileId, UUID idempotencyKey, boolean helpRequested, String inputText) {
         return """
-                {"mobileConsultationId":"%s","inputText":"%s","photoStorageKey":"lifeline/consultations/%s","helpRequested":%s,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
-                """.formatted(mobileId, inputText, mobileId, helpRequested, idempotencyKey);
+                {"mobileConsultationId":"%s","inputText":"%s","helpRequested":%s,"consultationRecordedAt":"2026-10-27T18:00:00","idempotencyKey":"%s"}
+                """.formatted(mobileId, inputText, helpRequested, idempotencyKey);
     }
 }

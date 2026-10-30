@@ -26,6 +26,9 @@ public class ConsultationSubmission extends AuditableAbstractAggregateRoot<Consu
     @Column(columnDefinition = "text")
     private String inputText;
 
+    @Column(length = 30)
+    private String requesterPhone;
+
     @Column(columnDefinition = "text")
     private String photoStorageKey;
 
@@ -60,8 +63,9 @@ public class ConsultationSubmission extends AuditableAbstractAggregateRoot<Consu
         }
         this.mobileConsultationId = mobileConsultationId;
         this.citizenUserId = citizenUserId == null ? null : new UserId(citizenUserId);
-        this.inputText = inputText;
-        this.photoStorageKey = photoStorageKey;
+        this.inputText = inputText == null || inputText.isBlank() ? null : inputText.strip();
+        this.photoStorageKey = photoStorageKey == null || photoStorageKey.isBlank()
+                ? null : photoStorageKey.strip();
         this.helpRequested = helpRequested;
         this.consultationRecordedAt = consultationRecordedAt;
         this.receivedAt = receivedAt;
@@ -74,5 +78,16 @@ public class ConsultationSubmission extends AuditableAbstractAggregateRoot<Consu
         if (answer != null) {
             answer.setConsultationSubmission(this);
         }
+    }
+
+    public void attachPhoto(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            throw new IllegalArgumentException("Photo storage key is required");
+        }
+        this.photoStorageKey = storageKey;
+    }
+
+    public boolean isPhotoPending() {
+        return inputText == null && photoStorageKey == null;
     }
 }

@@ -3,9 +3,9 @@ package com.upc.pe.lifeline.casemanagement.domain.model.aggregates;
 import com.upc.pe.lifeline.casemanagement.domain.model.entities.Assignation;
 import com.upc.pe.lifeline.casemanagement.domain.model.entities.CaseStatusHistory;
 import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.CaseStatus;
+import com.upc.pe.lifeline.casemanagement.domain.exceptions.CaseTransitionConflictException;
 import com.upc.pe.lifeline.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 import jakarta.persistence.*;
-import com.upc.pe.lifeline.casemanagement.domain.exceptions.CaseConflictException;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -43,28 +43,57 @@ public class Case extends AuditableAbstractAggregateRoot<Case> {
         this.status = CaseStatus.AVAILABLE;
     }
 
+    public void recordCreation(LocalDateTime occurredAt) {
+        statusHistory.add(new CaseStatusHistory(this, null, CaseStatus.AVAILABLE,
+                "SYSTEM", null, occurredAt));
+    }
+
     public void assignTo(UUID professionalUserId, LocalDateTime occurredAt) {
         if (status != CaseStatus.AVAILABLE) {
-            throw new CaseConflictException("The case is not available for assignment");
+            throw new CaseTransitionConflictException("Only available cases can be assigned");
         }
-        status = CaseStatus.ASSIGNED;
         assignations.add(new Assignation(this, professionalUserId, occurredAt));
-        statusHistory.add(new CaseStatusHistory(this, CaseStatus.AVAILABLE, CaseStatus.ASSIGNED,
-                "PROFESSIONAL", professionalUserId, occurredAt));
+        changeStatus(CaseStatus.ASSIGNED, professionalUserId, occurredAt);
     }
 
-    public void startCare(UUID professionalUserId, LocalDateTime occurredAt) {
-        if (status != CaseStatus.ASSIGNED || !openAssignationBelongsTo(professionalUserId)) {
-            throw new CaseConflictException("The case is not assigned to this professional");
+    public void release(UUID professionalUserId, LocalDateTime occurredAt) {
+        if (status != CaseStatus.ASSIGNED) {
+            throw new CaseTransitionConflictException("Only assigned cases can be released");
         }
-        status = CaseStatus.IN_PROGRESS;
-        statusHistory.add(new CaseStatusHistory(this, CaseStatus.ASSIGNED, CaseStatus.IN_PROGRESS,
-                "PROFESSIONAL", professionalUserId, occurredAt));
+        activeAssignmentFor(professionalUserId).setClosedAt(occurredAt);
+        changeStatus(CaseStatus.AVAILABLE, professionalUserId, occurredAt);
     }
 
-    private boolean openAssignationBelongsTo(UUID professionalUserId) {
+    public void start(UUID professionalUserId, LocalDateTime occurredAt) {
+        if (status != CaseStatus.ASSIGNED) {
+            throw new CaseTransitionConflictException("Only assigned cases can be started");
+        }
+        activeAssignmentFor(professionalUserId);
+        changeStatus(CaseStatus.IN_PROGRESS, professionalUserId, occurredAt);
+    }
+
+    public void close(UUID professionalUserId, String observation, LocalDateTime occurredAt) {
+        if (status != CaseStatus.IN_PROGRESS) {
+            throw new CaseTransitionConflictException("Only cases in progress can be closed");
+        }
+        activeAssignmentFor(professionalUserId).setClosedAt(occurredAt);
+        this.observation = observation;
+        this.closedAt = occurredAt;
+        changeStatus(CaseStatus.CLOSED, professionalUserId, occurredAt);
+    }
+
+    private Assignation activeAssignmentFor(UUID professionalUserId) {
         return assignations.stream()
-                .filter(assignation -> assignation.getClosedAt() == null)
-                .anyMatch(assignation -> assignation.getProfessionalUserId().userId().equals(professionalUserId));
+                .filter(assignment -> assignment.getClosedAt() == null
+                        && assignment.getProfessionalUserId().userId().equals(professionalUserId))
+                .findFirst()
+                .orElseThrow(() -> new CaseTransitionConflictException("Case is not assigned to this professional"));
+    }
+
+    private void changeStatus(CaseStatus nextStatus, UUID userId, LocalDateTime occurredAt) {
+        CaseStatus previous = this.status;
+        this.status = nextStatus;
+        statusHistory.add(new CaseStatusHistory(this, previous, nextStatus,
+                "PROFESSIONAL", userId, occurredAt));
     }
 }

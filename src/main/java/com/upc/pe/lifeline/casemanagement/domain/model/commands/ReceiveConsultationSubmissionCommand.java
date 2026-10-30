@@ -7,11 +7,20 @@ import java.util.Map;
 import java.util.UUID;
 
 public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UUID citizenUserId,
-                                                   String inputText, String photoStorageKey,
+                                                   String inputText,
                                                    boolean helpRequested, PatientData patient,
                                                    AnswerData answer,
                                                    LocalDateTime consultationRecordedAt,
-                                                   UUID idempotencyKey) {
+                                                   UUID idempotencyKey,
+                                                   String requesterPhone) {
+    public ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UUID citizenUserId,
+                                                String inputText, boolean helpRequested, PatientData patient,
+                                                AnswerData answer, LocalDateTime consultationRecordedAt,
+                                                UUID idempotencyKey) {
+        this(mobileConsultationId, citizenUserId, inputText, helpRequested, patient,
+                answer, consultationRecordedAt, idempotencyKey, null);
+    }
+
     public ReceiveConsultationSubmissionCommand {
         if (mobileConsultationId == null) {
             throw new IllegalArgumentException("Mobile consultation ID is required");
@@ -22,11 +31,21 @@ public record ReceiveConsultationSubmissionCommand(UUID mobileConsultationId, UU
         if (idempotencyKey == null) {
             throw new IllegalArgumentException("Idempotency key is required");
         }
+        requesterPhone = requesterPhone == null || requesterPhone.isBlank()
+                ? null : requesterPhone.strip();
+        if (requesterPhone != null && !requesterPhone.matches("\\+?[0-9 ()-]{6,30}")) {
+            throw new IllegalArgumentException("Requester phone is invalid");
+        }
     }
 
     public record PatientData(String name, Integer ageYears, String locationDescription,
                               String province, BigDecimal latitude, BigDecimal longitude,
                               String phone) {
+        public PatientData(String name, Integer ageYears, String locationDescription,
+                           String province, BigDecimal latitude, BigDecimal longitude) {
+            this(name, ageYears, locationDescription, province, latitude, longitude, null);
+        }
+
         public PatientData {
             phone = normalizePhone(phone);
         }

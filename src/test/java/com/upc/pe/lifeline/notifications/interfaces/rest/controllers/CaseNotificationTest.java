@@ -1,6 +1,7 @@
 package com.upc.pe.lifeline.notifications.interfaces.rest.controllers;
 
 import com.upc.pe.lifeline.casemanagement.application.internal.eventhandlers.CaseStatusNotificationListener;
+import com.upc.pe.lifeline.casemanagement.application.ports.ProfessionalEligibilityChecker;
 import com.upc.pe.lifeline.casemanagement.domain.model.aggregates.Case;
 import com.upc.pe.lifeline.casemanagement.domain.model.aggregates.ConsultationSubmission;
 import com.upc.pe.lifeline.casemanagement.domain.model.events.CaseStatusChangedEvent;
@@ -72,10 +73,14 @@ class CaseNotificationTest {
     @MockitoBean
     private CaseNotificationSender sender;
 
+    @MockitoBean
+    private ProfessionalEligibilityChecker eligibility;
+
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.when(eligibility.isApproved(any(UUID.class))).thenReturn(true);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         cases.deleteAll();
         submissions.deleteAll();

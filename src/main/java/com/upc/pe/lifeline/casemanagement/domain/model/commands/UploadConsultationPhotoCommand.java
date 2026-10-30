@@ -13,6 +13,9 @@ public record UploadConsultationPhotoCommand(UUID consultationId, byte[] image, 
         if (contentType == null || contentType.isBlank()) {
             throw new IllegalArgumentException("Content type is required");
         }
+        if (!java.util.List.of("image/jpeg", "image/png", "image/webp").contains(contentType)) {
+            throw new IllegalArgumentException("Only JPEG, PNG and WebP images are supported");
+        }
         image = image.clone();
     }
 

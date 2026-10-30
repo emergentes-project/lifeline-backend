@@ -1,6 +1,8 @@
 package com.upc.pe.lifeline.casemanagement.interfaces.rest.controllers;
 
 import com.upc.pe.lifeline.casemanagement.domain.model.aggregates.Case;
+import com.upc.pe.lifeline.casemanagement.application.ports.ProfessionalEligibilityChecker;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.upc.pe.lifeline.casemanagement.domain.model.aggregates.ConsultationSubmission;
 import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.CaseStatus;
 import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.CaseRepository;
@@ -56,10 +58,15 @@ class CaseAssignmentTest {
     @Autowired
     private EntityManager entityManager;
 
+    @MockitoBean
+    private ProfessionalEligibilityChecker eligibility;
+
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.when(eligibility.isApproved(org.mockito.ArgumentMatchers.any(UUID.class)))
+                .thenReturn(true);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 

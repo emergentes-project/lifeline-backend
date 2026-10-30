@@ -1,27 +1,24 @@
 package com.upc.pe.lifeline.casemanagement.interfaces.rest.transform;
 
 import com.upc.pe.lifeline.casemanagement.domain.model.aggregates.Case;
+import com.upc.pe.lifeline.casemanagement.domain.model.entities.Assignation;
+import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.CaseStatus;
 import com.upc.pe.lifeline.casemanagement.interfaces.rest.resources.CaseResource;
-
-import java.util.UUID;
 
 public class CaseResourceFromEntityAssembler {
     public static CaseResource toResourceFromEntity(Case caseEntity) {
-        return new CaseResource(
-                caseEntity.getId(),
-                caseEntity.getConsultationSubmission().getId(),
+        Assignation current = caseEntity.getAssignations().stream()
+                .filter(assignment -> assignment.getClosedAt() == null)
+                .findFirst().orElse(null);
+        if (current == null && caseEntity.getStatus() == CaseStatus.CLOSED) {
+            current = caseEntity.getAssignations().stream()
+                    .max(java.util.Comparator.comparing(Assignation::getAssignedAt)).orElse(null);
+        }
+        var submission = caseEntity.getConsultationSubmission();
+        return new CaseResource(caseEntity.getId(), submission.getId(),
+                submission.getCitizenUserId() == null ? null : submission.getCitizenUserId().userId(),
                 caseEntity.getStatus().name(),
-                openProfessional(caseEntity),
-                caseEntity.getObservation(),
-                caseEntity.getCreatedAt(),
-                caseEntity.getClosedAt());
-    }
-
-    private static UUID openProfessional(Case caseEntity) {
-        return caseEntity.getAssignations().stream()
-                .filter(assignation -> assignation.getClosedAt() == null)
-                .map(assignation -> assignation.getProfessionalUserId().userId())
-                .findFirst()
-                .orElse(null);
+                current == null ? null : current.getProfessionalUserId().userId(),
+                caseEntity.getObservation(), caseEntity.getClosedAt(), caseEntity.getCreatedAt());
     }
 }

@@ -45,6 +45,7 @@ public class JwtService {
         return Jwts.builder()
                 .issuer(issuer)
                 .subject(userId.userId().toString())
+                .id(UUID.randomUUID().toString())
                 .claim("token_use", "access")
                 .claim("role", role)
                 .issuedAt(Date.from(now.toInstant(ZoneOffset.UTC)))

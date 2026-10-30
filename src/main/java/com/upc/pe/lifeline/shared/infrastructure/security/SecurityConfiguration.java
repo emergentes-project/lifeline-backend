@@ -1,6 +1,7 @@
 package com.upc.pe.lifeline.shared.infrastructure.security;
 
 import jakarta.servlet.DispatcherType;
+import com.upc.pe.lifeline.shared.application.ports.AccessTokenRevocationStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,7 +29,8 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService,
                                                   RestAuthenticationEntryPoint exceptionHandler,
-                                                  CorsConfigurationSource corsConfigurationSource) throws Exception {
+                                                  CorsConfigurationSource corsConfigurationSource,
+                                                  AccessTokenRevocationStore accessTokenRevocationStore) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
@@ -51,9 +53,11 @@ public class SecurityConfiguration {
                                 "/api/v1/consultation-submissions/{consultationId}/photo").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/notification-tokens").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/roles").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/consultation-submissions/{consultationId}/photo")
+                        .permitAll()
                         .requestMatchers("/api/v1/internal/**").hasAuthority("SERVICE")
                         .anyRequest().hasAnyRole("CITIZEN", "MEDICAL_PROFESSIONAL"))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, exceptionHandler),
+                .addFilterBefore(new JwtAuthenticationFilter(jwtService, exceptionHandler, accessTokenRevocationStore),
                         UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

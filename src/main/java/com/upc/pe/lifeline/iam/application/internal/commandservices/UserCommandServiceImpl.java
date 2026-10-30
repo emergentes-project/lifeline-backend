@@ -12,6 +12,7 @@ import com.upc.pe.lifeline.iam.domain.model.aggregates.User;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterCitizenCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.RegisterMedicalProfessionalCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.SignInUserCommand;
+import com.upc.pe.lifeline.iam.domain.model.commands.SignOutUserCommand;
 import com.upc.pe.lifeline.iam.domain.model.commands.UpdateUserCommand;
 import com.upc.pe.lifeline.iam.domain.model.entities.Role;
 import com.upc.pe.lifeline.iam.domain.model.events.MedicalProfessionalRegisteredEvent;
@@ -21,6 +22,8 @@ import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.Citiz
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.MedicalProfileRepository;
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.RoleRepository;
 import com.upc.pe.lifeline.iam.infrastructure.persistence.jpa.repositories.UserRepository;
+import com.upc.pe.lifeline.shared.application.ports.AccessTokenRevocationStore;
+import com.upc.pe.lifeline.shared.infrastructure.security.JwtService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,18 +42,23 @@ public class UserCommandServiceImpl implements UserCommandService {
     private final RoleRepository roleRepository;
     private final PasswordHasher passwordHasher;
     private final ApplicationEventPublisher eventPublisher;
+    private final AccessTokenRevocationStore accessTokenRevocationStore;
+    private final JwtService jwtService;
 
     public UserCommandServiceImpl(UserRepository userRepository,
                                   CitizenProfileRepository citizenProfileRepository,
                                   MedicalProfileRepository medicalProfileRepository,
                                   RoleRepository roleRepository, PasswordHasher passwordHasher,
-                                  ApplicationEventPublisher eventPublisher) {
+                                  ApplicationEventPublisher eventPublisher,
+                                  AccessTokenRevocationStore accessTokenRevocationStore, JwtService jwtService) {
         this.userRepository = userRepository;
         this.citizenProfileRepository = citizenProfileRepository;
         this.medicalProfileRepository = medicalProfileRepository;
         this.roleRepository = roleRepository;
         this.passwordHasher = passwordHasher;
         this.eventPublisher = eventPublisher;
+        this.accessTokenRevocationStore = accessTokenRevocationStore;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -114,6 +122,19 @@ public class UserCommandServiceImpl implements UserCommandService {
         } catch (DataAccessException exception) {
             throw new ProfileNotUpdatedException(exception);
         }
+    }
+
+    @Override
+    @Transactional
+    public void handle(SignOutUserCommand command) {
+        var claims = jwtService.parseClaims(command.accessToken());
+        if (!"access".equals(claims.get("token_use", String.class))) {
+            throw new BadCredentialsException("Invalid access token");
+        }
+        if (!command.userId().toString().equals(claims.getSubject())) {
+            throw new BadCredentialsException("Invalid access token");
+        }
+        accessTokenRevocationStore.revoke(command.accessToken(), claims.getExpiration().toInstant());
     }
 
     private Role role(RolesCode code) {

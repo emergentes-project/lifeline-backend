@@ -23,7 +23,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -53,7 +52,7 @@ class ConsultationPhotoControllerTest {
     @Test
     void aMissingConsultationReturnsNotFoundAndDoesNotUpload() throws Exception {
         mvc.perform(multipart("/api/v1/consultation-submissions/" + UUID.randomUUID() + "/photo")
-                        .file(image()))
+                        .file(image()).header("Idempotency-Key", UUID.randomUUID().toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
 
@@ -67,9 +66,9 @@ class ConsultationPhotoControllerTest {
         when(images.upload(any(), eq(submission.getId()))).thenReturn(storageKey);
 
         mvc.perform(multipart("/api/v1/consultation-submissions/" + submission.getId() + "/photo")
-                        .file(image()))
-                .andExpect(status().isCreated())
-                .andExpect(content().string(storageKey));
+                        .file(image()).header("Idempotency-Key", submission.getIdempotencyKey().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.storageKey").value(storageKey));
 
         verify(images).upload(any(), eq(submission.getId()));
         assertThat(submissions.findById(submission.getId()).orElseThrow().getPhotoStorageKey())
@@ -82,9 +81,9 @@ class ConsultationPhotoControllerTest {
         ConsultationSubmission submission = submissions.save(submission(storageKey));
 
         mvc.perform(multipart("/api/v1/consultation-submissions/" + submission.getId() + "/photo")
-                        .file(image()))
+                        .file(image()).header("Idempotency-Key", submission.getIdempotencyKey().toString()))
                 .andExpect(status().isOk())
-                .andExpect(content().string(storageKey));
+                .andExpect(jsonPath("$.storageKey").value(storageKey));
 
         verify(images, never()).upload(any(), any());
     }
@@ -93,8 +92,9 @@ class ConsultationPhotoControllerTest {
     void anEmptyFileIsRejectedBeforeUpload() throws Exception {
         MockMultipartFile empty = new MockMultipartFile("file", "empty.jpg", MediaType.IMAGE_JPEG_VALUE, new byte[0]);
 
-        mvc.perform(multipart("/api/v1/consultation-submissions/" + UUID.randomUUID() + "/photo")
-                        .file(empty))
+        ConsultationSubmission submission = submissions.save(submission(null));
+        mvc.perform(multipart("/api/v1/consultation-submissions/" + submission.getId() + "/photo")
+                        .file(empty).header("Idempotency-Key", submission.getIdempotencyKey().toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
 

@@ -15,13 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @Service
 public class ReceiveConsultationSubmissionCommandServiceImpl implements ReceiveConsultationSubmissionCommandService {
-    static final String CONSULTATION_RECEIVED = "consultation.received";
-
     private final ConsultationSubmissionRepository submissions;
     private final OutboxEventRepository events;
     private final ReceiveConsultationSubmissionCommandServiceImpl self;
@@ -64,29 +60,20 @@ public class ReceiveConsultationSubmissionCommandServiceImpl implements ReceiveC
                 command.mobileConsultationId(),
                 command.citizenUserId(),
                 command.inputText(),
-                command.photoStorageKey(),
+                null,
                 command.helpRequested(),
                 command.consultationRecordedAt(),
                 receivedAt,
                 command.idempotencyKey(),
                 patient(command.patient()),
                 answer(command.answer()));
+        submission.setRequesterPhone(command.requesterPhone() != null ? command.requesterPhone()
+                : command.patient() == null ? null : command.patient().phone());
         submissions.saveAndFlush(submission);
-        if (command.helpRequested()) {
-            events.saveAndFlush(pendingEvent(submission));
+        if (command.helpRequested() && !submission.isPhotoPending()) {
+            events.saveAndFlush(ConsultationReceivedOutboxEventFactory.create(submission));
         }
         return Reception.created(submission);
-    }
-
-    private OutboxEvent pendingEvent(ConsultationSubmission submission) {
-        OutboxEvent event = new OutboxEvent(submission.getId(), CONSULTATION_RECEIVED, Map.of());
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("jobId", event.getId().toString());
-        payload.put("eventType", CONSULTATION_RECEIVED);
-        payload.put("aggregateId", submission.getId().toString());
-        payload.put("idempotencyKey", submission.getIdempotencyKey().toString());
-        event.setPayload(payload);
-        return event;
     }
 
     private Patient patient(ReceiveConsultationSubmissionCommand.PatientData data) {
