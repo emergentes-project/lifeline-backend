@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "authorization.jwt.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "cloudinary.enabled=true",
         "cloudinary.cloud-name=test-cloud",
         "cloudinary.api-key=test-key",
         "cloudinary.api-secret=test-secret"
