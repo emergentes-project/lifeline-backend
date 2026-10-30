@@ -121,6 +121,10 @@ class CaseWorkflowIntegrationTest {
                 .andExpect(jsonPath("$.items[0].id").value(caseId.toString()))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.totalPages").value(1));
+        mvc.perform(get("/api/v1/cases/paged").header(HttpHeaders.AUTHORIZATION, medicalToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.totalElements").exists());
         mvc.perform(get("/api/v1/cases/me/paged")
                         .header(HttpHeaders.AUTHORIZATION, token(citizen, "CITIZEN"))
                         .param("status", "AVAILABLE"))

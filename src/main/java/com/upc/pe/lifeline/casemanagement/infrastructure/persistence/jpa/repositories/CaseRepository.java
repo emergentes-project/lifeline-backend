@@ -38,7 +38,7 @@ public interface CaseRepository extends JpaRepository<Case, UUID> {
             where (:citizenId is null or c.consultationSubmission.citizenUserId.userId = :citizenId)
               and (:status is null or c.status = :status)
               and (:priority is null or ans.preliminaryPriority = :priority)
-              and (:province is null or lower(p.province) like lower(concat('%', :province, '%')))
+              and (:province is null or lower(p.province) like lower(concat('%', cast(:province as String), '%')))
               and (:relation is null
                    or (:relation = 'ASSIGNED_TO_ME' and exists
                        (select a.id from Assignation a where a.caseEntity = c
@@ -54,7 +54,7 @@ public interface CaseRepository extends JpaRepository<Case, UUID> {
             where (:citizenId is null or c.consultationSubmission.citizenUserId.userId = :citizenId)
               and (:status is null or c.status = :status)
               and (:priority is null or ans.preliminaryPriority = :priority)
-              and (:province is null or lower(p.province) like lower(concat('%', :province, '%')))
+              and (:province is null or lower(p.province) like lower(concat('%', cast(:province as String), '%')))
               and (:relation is null
                    or (:relation = 'ASSIGNED_TO_ME' and exists
                        (select a.id from Assignation a where a.caseEntity = c
