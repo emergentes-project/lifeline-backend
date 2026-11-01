@@ -2,10 +2,12 @@ package com.upc.pe.lifeline.notifications.interfaces.rest.controllers;
 
 import com.upc.pe.lifeline.notifications.domain.services.NotificationTokenCommandService;
 import com.upc.pe.lifeline.notifications.interfaces.rest.resources.RegisterNotificationTokenResource;
+import com.upc.pe.lifeline.notifications.interfaces.rest.resources.UnregisterNotificationTokenResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,6 +33,13 @@ public class NotificationTokenController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping
+    public ResponseEntity<Void> unregister(@RequestBody UnregisterNotificationTokenResource resource,
+                                           Authentication authentication) {
+        notificationTokens.unregister(resource.token(), requireCitizen(authentication));
+        return ResponseEntity.noContent().build();
+    }
+
     private UUID citizenUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication instanceof AnonymousAuthenticationToken) {
@@ -42,5 +51,13 @@ public class NotificationTokenController {
             throw new AccessDeniedException("You do not have permission to access this resource");
         }
         return UUID.fromString(authentication.getName());
+    }
+
+    private UUID requireCitizen(Authentication authentication) {
+        UUID citizenUserId = citizenUserId(authentication);
+        if (citizenUserId == null) {
+            throw new AccessDeniedException("You do not have permission to access this resource");
+        }
+        return citizenUserId;
     }
 }

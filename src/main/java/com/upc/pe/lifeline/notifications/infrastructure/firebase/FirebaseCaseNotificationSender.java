@@ -3,11 +3,15 @@ package com.upc.pe.lifeline.notifications.infrastructure.firebase;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
+import com.google.firebase.messaging.SendResponse;
 import com.upc.pe.lifeline.notifications.domain.model.CasePushMessage;
+import com.upc.pe.lifeline.notifications.domain.model.NotificationSendResult;
 import com.upc.pe.lifeline.notifications.domain.services.CaseNotificationSender;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -30,9 +34,9 @@ public class FirebaseCaseNotificationSender implements CaseNotificationSender {
     }
 
     @Override
-    public void send(CasePushMessage message, List<String> tokens) {
+    public NotificationSendResult send(CasePushMessage message, List<String> tokens) {
         if (!enabled || credentials.isEmpty() || tokens == null || tokens.isEmpty()) {
-            return;
+            return new NotificationSendResult(true, List.of());
         }
         List<Message> messages = new ArrayList<>();
         for (String token : tokens) {
@@ -46,10 +50,36 @@ public class FirebaseCaseNotificationSender implements CaseNotificationSender {
                     .build());
         }
         try {
-            FirebaseMessaging.getInstance(app()).sendEach(messages);
+            return result(tokens, FirebaseMessaging.getInstance(app()).sendEach(messages));
         } catch (FirebaseMessagingException exception) {
             throw new IllegalStateException("Case notification could not be sent", exception);
         }
+    }
+
+    private NotificationSendResult result(List<String> tokens, BatchResponse response) {
+        List<String> invalidTokens = new ArrayList<>();
+        boolean otherFailure = false;
+        List<SendResponse> responses = response.getResponses();
+        for (int index = 0; index < responses.size(); index++) {
+            SendResponse item = responses.get(index);
+            if (item.isSuccessful()) {
+                continue;
+            }
+            if (invalidToken(item.getException())) {
+                invalidTokens.add(tokens.get(index));
+            } else {
+                otherFailure = true;
+            }
+        }
+        return new NotificationSendResult(!otherFailure, invalidTokens);
+    }
+
+    private boolean invalidToken(FirebaseMessagingException exception) {
+        if (exception == null || exception.getMessagingErrorCode() == null) {
+            return false;
+        }
+        MessagingErrorCode code = exception.getMessagingErrorCode();
+        return code == MessagingErrorCode.UNREGISTERED || code == MessagingErrorCode.INVALID_ARGUMENT;
     }
 
     private FirebaseApp app() {

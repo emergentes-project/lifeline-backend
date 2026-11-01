@@ -6,6 +6,7 @@ import com.upc.pe.lifeline.notifications.domain.exceptions.NotificationRegistrat
 import com.upc.pe.lifeline.notifications.domain.model.aggregates.NotificationToken;
 import com.upc.pe.lifeline.notifications.domain.services.NotificationTokenCommandService;
 import com.upc.pe.lifeline.notifications.infrastructure.persistence.jpa.repositories.NotificationTokenRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +37,7 @@ public class NotificationTokenCommandServiceImpl implements NotificationTokenCom
             if (consultationId != null) {
                 requireOwnedBy(consultationId, citizenUserId);
             }
-            store(token, citizenUserId, consultationId);
+            store(token, citizenUserId, null);
             return;
         }
         if (consultationId == null) {
@@ -46,7 +47,27 @@ public class NotificationTokenCommandServiceImpl implements NotificationTokenCom
         if (!consultation.isHelpRequested() || consultation.getCitizenUserId() != null) {
             throw new NotificationRegistrationException("The consultation cannot register a guest token");
         }
+        if (tokens.findByToken(token).map(NotificationToken::getUserId).isPresent()) {
+            return;
+        }
         store(token, null, consultationId);
+    }
+
+    @Override
+    @Transactional
+    public void unregister(String rawToken, UUID citizenUserId) {
+        String token = rawToken == null ? "" : rawToken.trim();
+        if (token.isEmpty() || token.length() > 255) {
+            throw new IllegalArgumentException("Notification token is required");
+        }
+        NotificationToken stored = tokens.findByToken(token).orElse(null);
+        if (stored == null) {
+            return;
+        }
+        if (!citizenUserId.equals(stored.getUserId())) {
+            throw new AccessDeniedException("You do not have permission to access this resource");
+        }
+        tokens.delete(stored);
     }
 
     private void requireOwnedBy(UUID consultationId, UUID citizenUserId) {

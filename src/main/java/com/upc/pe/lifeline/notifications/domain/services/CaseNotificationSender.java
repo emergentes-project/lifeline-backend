@@ -1,9 +1,10 @@
 package com.upc.pe.lifeline.notifications.domain.services;
 
 import com.upc.pe.lifeline.notifications.domain.model.CasePushMessage;
+import com.upc.pe.lifeline.notifications.domain.model.NotificationSendResult;
 
 import java.util.List;
 
 public interface CaseNotificationSender {
-    void send(CasePushMessage message, List<String> tokens);
+    NotificationSendResult send(CasePushMessage message, List<String> tokens);
 }

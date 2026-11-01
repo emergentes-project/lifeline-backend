@@ -8,8 +8,11 @@ import com.upc.pe.lifeline.casemanagement.domain.model.events.CaseStatusChangedE
 import com.upc.pe.lifeline.casemanagement.domain.model.valueobjects.CaseStatus;
 import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.CaseRepository;
 import com.upc.pe.lifeline.casemanagement.infrastructure.persistence.jpa.repositories.ConsultationSubmissionRepository;
+import com.upc.pe.lifeline.notifications.application.internal.commandservices.NotificationDeliveryService;
 import com.upc.pe.lifeline.notifications.domain.model.CasePushMessage;
+import com.upc.pe.lifeline.notifications.domain.model.NotificationSendResult;
 import com.upc.pe.lifeline.notifications.domain.services.CaseNotificationSender;
+import com.upc.pe.lifeline.notifications.infrastructure.persistence.jpa.repositories.NotificationDeliveryRepository;
 import com.upc.pe.lifeline.notifications.infrastructure.persistence.jpa.repositories.NotificationTokenRepository;
 import com.upc.pe.lifeline.shared.domain.model.valueobjects.UserId;
 import com.upc.pe.lifeline.shared.infrastructure.security.JwtService;
@@ -35,8 +38,11 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,7 +55,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "authorization.jwt.secret=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "cloudinary.enabled=false",
-        "lifeline.notifications.firebase.enabled=false"
+        "lifeline.notifications.firebase.enabled=false",
+        "lifeline.notifications.delivery.scheduler-enabled=false"
 })
 class CaseNotificationTest {
     @Autowired
@@ -65,10 +72,16 @@ class CaseNotificationTest {
     private NotificationTokenRepository tokens;
 
     @Autowired
-    private JwtService jwtService;
+    private NotificationDeliveryRepository deliveries;
+
+    @Autowired
+    private NotificationDeliveryService deliveryService;
 
     @Autowired
     private CaseStatusNotificationListener listener;
+
+    @Autowired
+    private JwtService jwtService;
 
     @MockitoBean
     private CaseNotificationSender sender;
@@ -80,154 +93,166 @@ class CaseNotificationTest {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.when(eligibility.isApproved(any(UUID.class))).thenReturn(true);
+        when(eligibility.isApproved(any(UUID.class))).thenReturn(true);
+        when(sender.send(any(), any())).thenReturn(new NotificationSendResult(true, List.of()));
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        deliveries.deleteAll();
         cases.deleteAll();
         submissions.deleteAll();
         tokens.deleteAll();
     }
 
     @Test
-    void assignedAndInProgressEachSendOnceAndARepeatedAssignDoesNot() throws Exception {
-        UUID citizenId = UUID.randomUUID();
+    void theOwnerReceivesEachStatusOnceAndAnotherCitizenDoesNot() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID otherCitizenId = UUID.randomUUID();
         UUID professionalId = UUID.randomUUID();
-        ConsultationSubmission consultation = consultation(citizenId, true);
+        ConsultationSubmission consultation = consultation(ownerId, true);
         Case caseEntity = cases.save(new Case(consultation));
-        register(citizenId, "device-citizen", consultation.getId());
+        register(ownerId, "device-owner", consultation.getId());
+        register(otherCitizenId, "device-other", null);
 
         mvc.perform(post("/api/v1/cases/" + caseEntity.getId() + "/assign")
                         .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL")))
                 .andExpect(status().isOk());
-        verify(sender).send(message("ASSIGNED", "Un profesional asumió tu caso",
-                "Tu solicitud ya tiene un profesional asignado.", caseEntity.getId()), eq(List.of("device-citizen")));
+        deliveryService.dispatchDue();
+        deliveryService.dispatchDue();
+        verify(sender, times(1)).send(message("ASSIGNED", "Un profesional asumió tu caso",
+                "Tu solicitud ya tiene un profesional asignado.", caseEntity.getId()), eq(List.of("device-owner")));
 
         mvc.perform(patch("/api/v1/cases/" + caseEntity.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newStatus\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isOk());
-        verify(sender).send(message("IN_PROGRESS", "Tu caso está en atención",
-                "Un profesional inició la atención.", caseEntity.getId()), eq(List.of("device-citizen")));
+        deliveryService.dispatchDue();
+        deliveryService.dispatchDue();
+        verify(sender, times(1)).send(message("IN_PROGRESS", "Tu caso está en atención",
+                "Un profesional inició la atención.", caseEntity.getId()), eq(List.of("device-owner")));
 
-        mvc.perform(post("/api/v1/cases/" + caseEntity.getId() + "/assign")
-                        .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL")))
-                .andExpect(status().isConflict());
-        verify(sender, never()).send(message("CLOSED", "Tu caso está en atención",
-                "Un profesional inició la atención.", caseEntity.getId()), any());
-        org.mockito.Mockito.verifyNoMoreInteractions(sender);
+        mvc.perform(post("/api/v1/cases/" + caseEntity.getId() + "/close")
+                        .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"observation\":\"alta\"}"))
+                .andExpect(status().isOk());
+        deliveryService.dispatchDue();
+        verify(sender).send(message("CLOSED", "Tu caso fue cerrado",
+                "La atención del caso terminó.", caseEntity.getId()), eq(List.of("device-owner")));
+        verify(sender, never()).send(any(), eq(List.of("device-other")));
     }
 
     @Test
-    void closedAndRepeatedStatusDoNotSend() {
-        listener.on(new CaseStatusChangedEvent(UUID.randomUUID(), CaseStatus.ASSIGNED, CaseStatus.CLOSED));
-        listener.on(new CaseStatusChangedEvent(UUID.randomUUID(), CaseStatus.ASSIGNED, CaseStatus.ASSIGNED));
-        listener.on(new CaseStatusChangedEvent(UUID.randomUUID(), CaseStatus.AVAILABLE, CaseStatus.AVAILABLE));
-        verify(sender, never()).send(any(), any());
+    void aGuestRegistrationDoesNotReplaceAnOwnedToken() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        register(ownerId, "shared-phone", null);
+        ConsultationSubmission guestConsultation = consultation(null, true);
+
+        mvc.perform(post("/api/v1/notification-tokens")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"shared-phone\",\"consultationId\":\"" + guestConsultation.getId() + "\"}"))
+                .andExpect(status().isNoContent());
+
+        assertThat(tokens.findByToken("shared-phone").orElseThrow().getUserId()).isEqualTo(ownerId);
+        assertThat(tokens.findByToken("shared-phone").orElseThrow().getConsultationId()).isNull();
     }
 
     @Test
-    void aSenderFailureLeavesTheCaseAssigned() throws Exception {
-        UUID citizenId = UUID.randomUUID();
+    void aDeliveryFailureStaysPendingAndKeepsTheCase() throws Exception {
+        UUID ownerId = UUID.randomUUID();
         UUID professionalId = UUID.randomUUID();
-        ConsultationSubmission consultation = consultation(citizenId, true);
+        ConsultationSubmission consultation = consultation(ownerId, true);
         Case caseEntity = cases.save(new Case(consultation));
-        register(citizenId, "device-fails", consultation.getId());
+        register(ownerId, "device-fails", null);
         doThrow(new RuntimeException("push failed")).when(sender).send(any(), any());
 
         mvc.perform(post("/api/v1/cases/" + caseEntity.getId() + "/assign")
                         .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL")))
                 .andExpect(status().isOk());
+        deliveryService.dispatchDue();
 
+        var delivery = deliveries.findByCaseIdAndStatus(caseEntity.getId(), "ASSIGNED").orElseThrow();
+        assertThat(delivery.getSentAt()).isNull();
+        assertThat(delivery.getAttempts()).isEqualTo(1);
         assertThat(cases.findById(caseEntity.getId()).orElseThrow().getStatus()).isEqualTo(CaseStatus.ASSIGNED);
     }
 
     @Test
-    void aGuestTokenReceivesTheAssignmentAndACaseWithoutTokenDoesNot() throws Exception {
-        UUID professionalId = UUID.randomUUID();
-        ConsultationSubmission guestConsultation = consultation(null, true);
-        Case guestCase = cases.save(new Case(guestConsultation));
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"device-guest\",\"consultationId\":\"" + guestConsultation.getId() + "\"}"))
-                .andExpect(status().isNoContent());
+    void anInvalidTokenIsRemovedAndARepeatedStatusIsNotQueued() {
+        UUID ownerId = UUID.randomUUID();
+        ConsultationSubmission consultation = consultation(ownerId, true);
+        Case caseEntity = cases.save(new Case(consultation));
+        tokens.save(new com.upc.pe.lifeline.notifications.domain.model.aggregates.NotificationToken(
+                "device-stale", ownerId, null, LocalDateTime.now(ZoneOffset.UTC)));
+        when(sender.send(any(), any())).thenReturn(new NotificationSendResult(true, List.of("device-stale")));
 
-        mvc.perform(post("/api/v1/cases/" + guestCase.getId() + "/assign")
-                        .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL")))
-                .andExpect(status().isOk());
-        verify(sender).send(message("ASSIGNED", "Un profesional asumió tu caso",
-                "Tu solicitud ya tiene un profesional asignado.", guestCase.getId()), eq(List.of("device-guest")));
+        listener.on(new CaseStatusChangedEvent(caseEntity.getId(), CaseStatus.AVAILABLE, CaseStatus.ASSIGNED));
+        listener.on(new CaseStatusChangedEvent(caseEntity.getId(), CaseStatus.ASSIGNED, CaseStatus.ASSIGNED));
+        listener.on(new CaseStatusChangedEvent(UUID.randomUUID(), CaseStatus.ASSIGNED, CaseStatus.AVAILABLE));
+        assertThat(deliveries.findAll()).hasSize(1);
 
-        Case silent = cases.save(new Case(consultation(UUID.randomUUID(), true)));
-        mvc.perform(post("/api/v1/cases/" + silent.getId() + "/assign")
-                        .header(HttpHeaders.AUTHORIZATION, token(professionalId, "MEDICAL_PROFESSIONAL")))
-                .andExpect(status().isOk());
-        verify(sender, never()).send(message("ASSIGNED", "Un profesional asumió tu caso",
-                "Tu solicitud ya tiene un profesional asignado.", silent.getId()), any());
-        assertThat(cases.findById(silent.getId()).orElseThrow().getStatus()).isEqualTo(CaseStatus.ASSIGNED);
+        deliveryService.dispatchDue();
+        assertThat(tokens.findByToken("device-stale")).isEmpty();
+        assertThat(deliveries.findByCaseIdAndStatus(caseEntity.getId(), "ASSIGNED").orElseThrow().getSentAt())
+                .isNotNull();
     }
 
     @Test
-    void tokenRegistrationReplacesTheSameTokenAndRejectsAnInvalidOne() throws Exception {
+    void deleteRemovesOnlyTheAuthenticatedCitizensToken() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID otherId = UUID.randomUUID();
+        register(ownerId, "device-owner", null);
+        register(otherId, "device-other", null);
+
+        mvc.perform(delete("/api/v1/notification-tokens")
+                        .header(HttpHeaders.AUTHORIZATION, token(otherId, "CITIZEN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"device-owner\"}"))
+                .andExpect(status().isForbidden());
+        assertThat(tokens.findByToken("device-owner")).isPresent();
+
+        mvc.perform(delete("/api/v1/notification-tokens")
+                        .header(HttpHeaders.AUTHORIZATION, token(ownerId, "CITIZEN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"device-owner\"}"))
+                .andExpect(status().isNoContent());
+        assertThat(tokens.findByToken("device-owner")).isEmpty();
+        assertThat(tokens.findByToken("device-other")).isPresent();
+
+        mvc.perform(delete("/api/v1/notification-tokens")
+                        .header(HttpHeaders.AUTHORIZATION, token(ownerId, "CITIZEN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"device-owner\"}"))
+                .andExpect(status().isNoContent());
+        mvc.perform(delete("/api/v1/notification-tokens")
+                        .header(HttpHeaders.AUTHORIZATION, token(UUID.randomUUID(), "MEDICAL_PROFESSIONAL"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"device-other\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/notification-tokens")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"device-other\"}"))
+                .andExpect(status().isUnauthorized());
+        assertThat(tokens.findByToken("device-other")).isPresent();
+    }
+
+    @Test
+    void aCitizenRegistrationReplacesTheOwnerWithoutKeepingTheConsultation() throws Exception {
         UUID firstCitizen = UUID.randomUUID();
         UUID secondCitizen = UUID.randomUUID();
-        ConsultationSubmission first = consultation(firstCitizen, true);
-        ConsultationSubmission second = consultation(secondCitizen, true);
-        register(firstCitizen, "same-device", first.getId());
-        register(secondCitizen, "same-device", second.getId());
+        register(firstCitizen, "same-device", consultation(firstCitizen, true).getId());
+        register(secondCitizen, "same-device", consultation(secondCitizen, true).getId());
 
         assertThat(tokens.findAll()).hasSize(1);
         assertThat(tokens.findByToken("same-device").orElseThrow().getUserId()).isEqualTo(secondCitizen);
-        assertThat(tokens.findByToken("same-device").orElseThrow().getConsultationId()).isEqualTo(second.getId());
-
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .header(HttpHeaders.AUTHORIZATION, token(firstCitizen, "CITIZEN"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"   \",\"consultationId\":null}"))
-                .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + "x".repeat(256) + "\",\"consultationId\":\"" + first.getId() + "\"}"))
-                .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"guest-without-consultation\",\"consultationId\":null}"))
-                .andExpect(status().isBadRequest());
-        assertThat(tokens.findByToken("x".repeat(256))).isEmpty();
-        assertThat(tokens.findByToken("guest-without-consultation")).isEmpty();
-    }
-
-    @Test
-    void aGuestCannotRegisterAnotherPersonsConsultation() throws Exception {
-        UUID citizenId = UUID.randomUUID();
-        ConsultationSubmission owned = consultation(citizenId, true);
-        ConsultationSubmission withoutHelp = consultation(null, false);
-
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"stolen\",\"consultationId\":\"" + owned.getId() + "\"}"))
-                .andExpect(status().isConflict());
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"no-help\",\"consultationId\":\"" + withoutHelp.getId() + "\"}"))
-                .andExpect(status().isConflict());
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .header(HttpHeaders.AUTHORIZATION, token(citizenId, "CITIZEN"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"foreign\",\"consultationId\":\"" + UUID.randomUUID() + "\"}"))
-                .andExpect(status().isNotFound());
-        mvc.perform(post("/api/v1/notification-tokens")
-                        .header(HttpHeaders.AUTHORIZATION, token(UUID.randomUUID(), "MEDICAL_PROFESSIONAL"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"professional\",\"consultationId\":null}"))
-                .andExpect(status().isForbidden());
-        assertThat(tokens.findByToken("stolen")).isEmpty();
+        assertThat(tokens.findByToken("same-device").orElseThrow().getConsultationId()).isNull();
     }
 
     private void register(UUID citizenId, String deviceToken, UUID consultationId) throws Exception {
+        String consultationJson = consultationId == null ? "null" : "\"" + consultationId + "\"";
         mvc.perform(post("/api/v1/notification-tokens")
                         .header(HttpHeaders.AUTHORIZATION, token(citizenId, "CITIZEN"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + deviceToken + "\",\"consultationId\":\"" + consultationId + "\"}"))
+                        .content("{\"token\":\"" + deviceToken + "\",\"consultationId\":" + consultationJson + "}"))
                 .andExpect(status().isNoContent());
     }
 
